@@ -124,16 +124,20 @@ main (int argc, char *argv[])
   uint8_t channel_number = 3;
   wifiPhyPtr->SetChannelNumber(channel_number);
   std::cout << "after setting it, the channel number=" << int(wifiPhyPtr->GetChannelNumber()) << std::endl;
-  
-  Config::Set("/NodeList/1/DeviceList/*/$ns3::WifiNetDevice/Phy/$ns3::WifiPhy/ChannelNumber", UintegerValue (11));
+  std::cout << "and centre frequency=" << int(wifiPhyPtr->GetFrequency()) << std::endl; 
+
+  wifiPhyPtr->SetAttribute("ChannelNumber", UintegerValue (11));
   UintegerValue new_channel;
   wifiPhyPtr->GetAttribute("ChannelNumber", new_channel);
-  std::cout << "after setting by PhyHelper, channel number=" << new_channel.Get() << std::endl;
+  std::cout << "after setting by attribute, channel number=" << new_channel.Get() << std::endl;
+  std::cout << "and centre frequency=" << int(wifiPhyPtr->GetFrequency()) << std::endl;
 
   uint16_t stachannelWidth = wifiPhyPtr->GetChannelWidth();
   std::cout << "the channel width=" << stachannelWidth << std::endl;
   uint16_t frequency = wifiPhyPtr->GetFrequency();
   std::cout << "the frequency=" << frequency << std::endl;
+  wifiPhyPtr->SetChannelWidth(10);
+  std::cout << "after setting channel width=" << int(wifiPhyPtr->GetChannelWidth()) << std::endl;
 
   mac.SetType ("ns3::ApWifiMac",
                "Ssid", SsidValue (ssid));
