@@ -65,9 +65,9 @@ void MonitorSniffRx (Ptr<const Packet> packet,
 
 NS_LOG_COMPONENT_DEFINE ("WifiAdHocSpectrumChannels");
 
-
 int main (int argc, char *argv[])
 {
+    //LogComponentEnable("SpectrumWifiHelper", LOG_LEVEL_DEBUG);
     //double distance1 = 50;
     //double distance2 = 100;
     double simulationTime = 10;
@@ -100,9 +100,15 @@ int main (int argc, char *argv[])
         NetDeviceContainer adhocDevs;
 
         spectrumChannel = CreateObject<MultiModelSpectrumChannel> ();
-        Ptr<FriisPropagationLossModel> lossModel;
-        lossModel = CreateObject<FriisPropagationLossModel> ();
-        lossModel->SetFrequency (5.180e9);
+        Ptr<FixedRssLossModel> lossModel;
+        DoubleValue get_rss;
+
+        //lossModel = CreateObject<FriisPropagationLossModel> ();
+        lossModel = CreateObject<FixedRssLossModel> ();
+        lossModel->SetRss(rss);
+        lossModel->GetAttribute("Rss", get_rss);
+        std::cout << "Rss after setting = " << get_rss.Get() << std::endl;
+        //lossModel->SetFrequency (5.180e9);
         spectrumChannel->AddPropagationLossModel (lossModel);
         Ptr<ConstantSpeedPropagationDelayModel> delayModel = CreateObject<ConstantSpeedPropagationDelayModel> ();
         spectrumChannel->SetPropagationDelayModel (delayModel);
@@ -110,6 +116,8 @@ int main (int argc, char *argv[])
         spectrumPhy.SetChannel (spectrumChannel);
         spectrumPhy.SetErrorRateModel (errorModelType);
         spectrumPhy.Set ("Frequency", UintegerValue (5180));
+        spectrumPhy.Set("RxGain", DoubleValue (0));
+        spectrumPhy.Set("TxGain", DoubleValue (0));
 
         WifiHelper wifi;
         wifi.SetStandard (WIFI_PHY_STANDARD_80211n_5GHZ);

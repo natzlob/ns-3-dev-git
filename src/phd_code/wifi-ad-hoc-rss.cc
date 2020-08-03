@@ -51,12 +51,36 @@ void MonitorSniffRx (Ptr<const Packet> packet,
   g_noiseDbmAvg += ((signalNoise.noise - g_noiseDbmAvg) / g_samples);
 }
 
+void ReceivePacket (Ptr<Socket> socket)
+{
+  while (socket->Recv ())
+    {
+      NS_LOG_UNCOND ("Received one packet!");
+    }
+}
 
-NS_LOG_COMPONENT_DEFINE ("WifiAdHocInterferenceChannels");
+static void GenerateTraffic (Ptr<Socket> socket, uint32_t pktSize,
+                             uint32_t pktCount, Time pktInterval )
+{
+  if (pktCount > 0)
+    {
+      socket->Send (Create<Packet> (pktSize));
+      Simulator::Schedule (pktInterval, &GenerateTraffic,
+                           socket, pktSize,pktCount - 1, pktInterval);
+    }
+  else
+    {
+      socket->Close ();
+    }
+}
+
+NS_LOG_COMPONENT_DEFINE ("WifiAdHocRss");
 
 
 int main (int argc, char *argv[])
 {
+    //LogComponentEnable ("UdpEchoClientApplication", LOG_LEVEL_INFO);
+    LogComponentEnable ("UdpL4Protocol", LOG_LEVEL_INFO);
     double simulationTime = 10;
     uint32_t payloadSize = 972;
     std::string phyMode ("HtMcs4");
