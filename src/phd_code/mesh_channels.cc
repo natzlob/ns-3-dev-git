@@ -150,10 +150,9 @@ MeshTest::MeshTest () :
   m_packetInterval (0.1),
   m_packetSize (1024),
   m_nIfaces (1),
-  m_chan (false),
+  m_chan (true),
   m_pcap (false),
   m_ascii (true),
-  rss (-80),
   m_stack ("ns3::Dot11sStack"),
   m_root ("ff:ff:ff:ff:ff:ff")
 {
