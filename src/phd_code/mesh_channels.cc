@@ -75,6 +75,10 @@ void MonitorSniffRx (Ptr<const Packet> packet,
   g_noiseDbmAvg += ((signalNoise.noise - g_noiseDbmAvg) / g_samples);
 }
 
+std::unordered_map<int, double> channelGainMap = {
+  {1, 2}, {2, 4}, {3, 6}, {4, 8}, {5, 0}
+};
+
 NS_LOG_COMPONENT_DEFINE ("TestMeshScript");
 
 /**
@@ -103,7 +107,10 @@ public:
   /// Map channel number to PropagationLossModel
   void MapChanneltoLoss (YansWifiChannelHelper wifiChannel, uint16_t channelNumber);
   /// Get current channel numbers and map to newChannelNumber
+  // void MapChanneltoRxGain (uint16_t channelNumber);
+  /// Get current channel and map to received gain value in dB
   void GetSetChannelNumber (uint16_t newChannelNumber);
+  /// Get the current channel number and set to new channel number
 private:
   int       m_xSize; ///< X size
   int       m_ySize; ///< Y size
@@ -248,7 +255,19 @@ MeshTest::CreateNodes ()
 Ptr<WifiPhy> MeshTest::GetPhy (int i)
 {
     Ptr<NetDevice> netdev = meshDevices.Get(i);
+    if (netdev != 0){
+      NS_LOG_UNCOND("netdev is not null");
+    }
+    else {
+      NS_LOG_ERROR("netdev is null pointer");
+    }
     Ptr<WifiNetDevice> wifinetdev = DynamicCast<WifiNetDevice> (netdev);
+    if (wifinetdev!=0){
+      NS_LOG_UNCOND("wifinetdev not a null pointer");
+    }
+    else {
+      NS_LOG_ERROR("wifinetdev is a null pointer");
+    }
     Ptr<WifiPhy> wifiPhyPtr = wifinetdev->GetPhy ();
     return wifiPhyPtr;
 
@@ -295,6 +314,9 @@ void MeshTest::GetSetChannelNumber (uint16_t newChannelNumber)
             {
                     Ptr<WifiNetDevice> ifdevice = DynamicCast<WifiNetDevice>(*j);
                     NS_ASSERT (ifdevice != 0);
+                    //access the WifiPhy ptr
+                    Ptr<WifiPhy> wifiPhyPtr = ifdevice->GetPhy ();
+                    NS_ASSERT(wifiPhyPtr != 0);
                     // access MAC
                     Ptr<MeshWifiInterfaceMac> ifmac = DynamicCast<MeshWifiInterfaceMac>(ifdevice->GetMac());
                     NS_ASSERT (ifmac != 0);
@@ -303,7 +325,8 @@ void MeshTest::GetSetChannelNumber (uint16_t newChannelNumber)
                     // Change channel 
                     ifmac->SwitchFrequencyChannel (newChannelNumber);
                     NS_LOG_UNCOND ("New channel: " << ifmac->GetFrequencyChannel ());
-                    MapChanneltoLoss(wifiChannel, newChannelNumber);
+                    wifiPhyPtr->SetRxGain(channelGainMap[newChannelNumber]);
+                    NS_LOG_UNCOND ("the receive gain is now " << wifiPhyPtr->GetRxGain());
             }
     }
 }
@@ -336,7 +359,7 @@ MeshTest::Run ()
 {
   CreateNodes ();
   InstallInternetStack ();
-  GetSetChannelNumber(1);
+  GetSetChannelNumber(2);
   InstallApplication ();
   Simulator::Schedule (Seconds (m_totalTime), &MeshTest::Report, this);
   Config::ConnectWithoutContext ("/NodeList/0/DeviceList/*/Phy/MonitorSnifferRx", MakeCallback (&MonitorSniffRx));
