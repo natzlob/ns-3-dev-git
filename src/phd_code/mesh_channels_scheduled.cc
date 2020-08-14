@@ -362,9 +362,14 @@ MeshTest::Run ()
   g_samples = 0;
   CreateNodes ();
   InstallInternetStack ();
-  for (int i=1; i<=5; i++) {
-    GetSetChannelNumber(i);
-  }
+  Simulator::Schedule(Seconds (0), &MeshTest::GetSetChannelNumber, this, 1);
+  Simulator::Schedule(Seconds (5), &MeshTest::GetSetChannelNumber, this, 2);
+  Simulator::Schedule(Seconds (10), &MeshTest::GetSetChannelNumber, this, 3);
+  Simulator::Schedule(Seconds (15), &MeshTest::GetSetChannelNumber, this, 4);
+
+  // for (int i=1; i<=5; i++) {
+  //   GetSetChannelNumber(i);
+  // }
   InstallApplication ();
   Simulator::Schedule (Seconds (m_totalTime), &MeshTest::Report, this);
   Config::ConnectWithoutContext ("/NodeList/0/DeviceList/*/Phy/MonitorSnifferRx", MakeCallback (&MonitorSniffRx));
