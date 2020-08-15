@@ -55,6 +55,9 @@
 #include "ns3/mesh-helper.h"
 #include "ns3/yans-wifi-helper.h"
 #include "ns3/wifi-module.h"
+#include "ns3/spectrum-wifi-helper.h"
+#include "ns3/spectrum-helper.h"
+#include "ns3/multi-model-spectrum-channel.h"
 
 using namespace ns3;
 
@@ -106,9 +109,7 @@ public:
   Ptr<WifiPhy> GetPhy (int i);
   /// Map channel number to PropagationLossModel
   void MapChanneltoLoss (YansWifiChannelHelper wifiChannel, uint16_t channelNumber);
-  /// Get current channel numbers and map to newChannelNumber
-  // void MapChanneltoRxGain (uint16_t channelNumber);
-  /// Get current channel and map to received gain value in dB
+  /// Get current channel numbers and map to loss
   void GetSetChannelNumber (uint16_t newChannelNumber);
   /// Get the current channel number and set to new channel number
 private:
@@ -140,6 +141,9 @@ private:
   uint16_t channelNumber;
   ///The Yans wifi channel
   YansWifiChannelHelper wifiChannel;
+  SpectrumWifiPhyHelper spectrumPhy;
+  ///Spectrum channel helper
+  SpectrumChannelHelper spectrumChannel;
   ///ApplicationContainer for throughput measurement
   ApplicationContainer serverApps;
 private:
@@ -157,7 +161,7 @@ private:
 MeshTest::MeshTest () :
   m_xSize (3),
   m_ySize (3),
-  m_step (100.0),
+  m_step (50.0),
   m_randomStart (0.1),
   m_totalTime (20.0),
   m_packetInterval (0.1),
@@ -208,10 +212,13 @@ MeshTest::CreateNodes ()
    */
   nodes.Create (m_ySize*m_xSize);
   // Configure YansWifiChannel
-  YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
-  wifiChannel = YansWifiChannelHelper::Default ();
-  //wifiChannel.AddPropagationLoss("ns3::FixedRssLossModel", "Rss", DoubleValue(rss));
-  wifiPhy.SetChannel (wifiChannel.Create ());
+  // YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
+  spectrumPhy = SpectrumWifiPhyHelper::Default ();
+  // wifiChannel = YansWifiChannelHelper::Default ();
+  spectrumChannel = SpectrumChannelHelper::Default ();
+  // wifiChannel.AddPropagationLoss("ns3::FixedRssLossModel", "Rss", DoubleValue(rss));
+  // wifiPhy.SetChannel (wifiChannel.Create ());
+  spectrumPhy.SetChannel (spectrumChannel.Create ());
   /*
    * Create mesh helper and set stack installer to it
    * Stack installer creates all needed protocols and install them to
@@ -240,7 +247,8 @@ MeshTest::CreateNodes ()
   // Set number of interfaces - default is single-interface mesh point
   mesh.SetNumberOfInterfaces (m_nIfaces);
   // Install protocols and return container if MeshPointDevices
-  meshDevices = mesh.Install (wifiPhy, nodes);
+  // meshDevices = mesh.Install (wifiPhy, nodes);
+  meshDevices = mesh.Install (spectrumPhy, nodes);
   // Setup mobility - static grid topology
   MobilityHelper mobility;
   mobility.SetPositionAllocator ("ns3::GridPositionAllocator",
@@ -253,11 +261,13 @@ MeshTest::CreateNodes ()
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   mobility.Install (nodes);
   if (m_pcap)
-    wifiPhy.EnablePcapAll (std::string ("mp-"));
+    // wifiPhy.EnablePcapAll (std::string ("mp-"));
+    spectrumPhy.EnablePcapAll (std::string ("mp-"));
   if (m_ascii)
     {
       AsciiTraceHelper ascii;
-      wifiPhy.EnableAsciiAll (ascii.CreateFileStream ("mesh.tr"));
+      // wifiPhy.EnableAsciiAll (ascii.CreateFileStream ("mesh.tr"));
+      spectrumPhy.EnableAsciiAll (ascii.CreateFileStream ("mesh.tr"));
     }
 }
 
@@ -322,7 +332,12 @@ void MeshTest::GetSetChannelNumber (uint16_t newChannelNumber)
             for (std::vector<Ptr<NetDevice> >::iterator j = meshInterfaces.begin(); j != meshInterfaces.end(); ++j)
             {
                     Ptr<WifiNetDevice> ifdevice = DynamicCast<WifiNetDevice>(*j);
-                    NS_ASSERT (ifdevice != 0);
+                    if (ifdevice != 0) {
+                        NS_LOG_UNCOND("ifdevice pointer not empty");
+                    }
+                    else {
+                        NS_LOG_UNCOND("ifdevice pointer is null");
+                    }
                     //access the WifiPhy ptr
                     Ptr<WifiPhy> wifiPhyPtr = ifdevice->GetPhy ();
                     NS_ASSERT(wifiPhyPtr != 0);
