@@ -395,7 +395,6 @@ LrWpanNetDevice::Send (Ptr<Packet> packet, const Address& dest, uint16_t protoco
 
   McpsDataRequestParams m_mcpsDataRequestParams;
 
-  std::cout << "Trying to send a packet to " << dest << std::endl;
   Mac16Address dst16;
   if (Mac48Address::IsMatchingType (dest))
     {
@@ -475,7 +474,7 @@ LrWpanNetDevice::McpsDataIndication (McpsDataIndicationParams params, Ptr<Packet
 {
   NS_LOG_FUNCTION (this);
   // TODO: Use the PromiscReceiveCallback if the MAC is in promiscuous mode.
-  m_receiveCallback (this, pkt, 0, params.m_srcAddr);
+    m_receiveCallback (this, pkt, 0, BuildPseudoMacAddress (params.m_srcPanId, params.m_srcAddr));
 }
 
 bool

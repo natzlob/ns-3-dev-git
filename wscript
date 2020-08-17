@@ -11,6 +11,8 @@ import re
 import shlex
 import subprocess
 import textwrap
+import fileinput
+import glob
 
 from utils import read_config_file
 
@@ -198,6 +200,10 @@ def options(opt):
                          ' argument is the path to the python program, optionally followed'
                          ' by command-line options that are passed to the program.'),
                    type="string", default='', dest='pyrun_no_build')
+    opt.add_option('--gdb',
+                   help=('Change the default command template to run programs and unit tests with gdb'),
+                   action="store_true", default=False,
+                   dest='gdb')
     opt.add_option('--valgrind',
                    help=('Change the default command template to run programs and unit tests with valgrind'),
                    action="store_true", default=False,
@@ -242,6 +248,10 @@ def options(opt):
                          'but do not wait for ns-3 to finish the full build.'),
                    action="store_true", default=False,
                    dest='doxygen_no_build')
+    opt.add_option('--docset',
+                   help=('Create Docset, without building. This requires the docsetutil tool from Xcode 9.2 or earlier. See Bugzilla 2196 for more details.'),
+                   action="store_true", default=False,
+                   dest="docset_build")
     opt.add_option('--enable-des-metrics',
                    help=('Log all events in a json file with the name of the executable (which must call CommandLine::Parse(argc, argv)'),
                    action="store_true", default=False,
@@ -249,6 +259,14 @@ def options(opt):
     opt.add_option('--cxx-standard',
                    help=('Compile NS-3 with the given C++ standard'),
                    type='string', default='-std=c++11', dest='cxx_standard')
+    opt.add_option('--enable-asserts',
+                   help=('Enable the asserts regardless of the compile mode'),
+                   action="store_true", default=False,
+                   dest='enable_asserts')
+    opt.add_option('--enable-logs',
+                   help=('Enable the logs regardless of the compile mode'),
+                   action="store_true", default=False,
+                   dest='enable_logs')
 
     # options provided in subdirectories
     opt.recurse('src')
@@ -385,6 +403,11 @@ def configure(conf):
 
     if Options.options.build_profile == 'optimized':
         env.append_value('DEFINES', 'NS3_BUILD_PROFILE_OPTIMIZED')
+
+    if Options.options.enable_logs:
+        env.append_unique('DEFINES', 'NS3_LOG_ENABLE')
+    if Options.options.enable_asserts:
+        env.append_unique('DEFINES', 'NS3_ASSERT_ENABLE')
 
     env['PLATFORM'] = sys.platform
     env['BUILD_PROFILE'] = Options.options.build_profile
@@ -544,8 +567,6 @@ def configure(conf):
                 raise WafError('Exiting because the ' + not_built + ' module can not be built and it was the only one enabled.')
         elif not_built_name in conf.env['NS3_ENABLED_CONTRIBUTED_MODULES']:
             conf.env['NS3_ENABLED_CONTRIBUTED_MODULES'].remove(not_built_name)
-
-    conf.recurse('src/mpi')
 
     # for suid bits
     try:
@@ -743,7 +764,8 @@ def create_ns3_program(bld, name, dependencies=('core',)):
     # Each of the modules this program depends on has its own library.
     program.ns3_module_dependencies = ['ns3-'+dep for dep in dependencies]
     program.includes = "#"
-    program.use = program.ns3_module_dependencies
+    #make a copy here to prevent additions to program.use from polluting program.ns3_module_dependencies
+    program.use = program.ns3_module_dependencies.copy()
     if program.env['ENABLE_STATIC_NS3']:
         if sys.platform == 'darwin':
             program.env.STLIB_MARKER = '-Wl,-all_load'
@@ -765,6 +787,9 @@ def register_ns3_script(bld, name, dependencies=('core',)):
 def add_examples_programs(bld):
     env = bld.env
     if env['ENABLE_EXAMPLES']:
+        # Add a define, so this is testable from code
+        env.append_value('DEFINES', 'NS3_ENABLE_EXAMPLES')
+
         try:
             for dir in os.listdir('examples'):
                 if dir.startswith('.') or dir == 'CVS':
@@ -1001,6 +1026,14 @@ def build(bld):
                 if obj.module not in bld.env.NS3_ENABLED_MODULES and obj.module not in bld.env.NS3_ENABLED_CONTRIBUTED_MODULES:
                     bld.exclude_taskgen(obj)
 
+            # disable python bindings for disabled modules
+            if 'pybindgen' in obj.name:
+                if ("ns3-%s" % obj.module) not in modules and ("ns3-%s" % obj.module) not in contribModules:
+                    bld.exclude_taskgen(obj)
+            if 'pyext' in getattr(obj, "features", []):
+                if ("ns3-%s" % obj.module) not in modules and ("ns3-%s" % obj.module) not in contribModules:
+                    bld.exclude_taskgen(obj)
+
 
     if env['NS3_ENABLED_MODULES']:
         env['NS3_ENABLED_MODULES'] = list(modules)
@@ -1054,7 +1087,7 @@ def build(bld):
         bld.env['PRINT_BUILT_MODULES_AT_END'] = False 
 
     if Options.options.doxygen_no_build:
-        _doxygen(bld)
+        _doxygen(bld, skip_pid=True)
         raise SystemExit(0)
 
     if Options.options.run_no_build:
@@ -1081,7 +1114,6 @@ def _cleandocs():
     _cleandir('doc/manual/build')
     _cleandir('doc/manual/source-temp')
     _cleandir('doc/tutorial/build')
-    _cleandir('doc/tutorial-pt-br/build')
     _cleandir('doc/models/build')
     _cleandir('doc/models/source-temp')
 
@@ -1224,15 +1256,9 @@ class Ns3ShellContext(Context.Context):
         wutils.run_argv([shell], env, os_env)
 
 
-def _doxygen(bld):
+def _print_introspected_doxygen(bld):
     env = wutils.bld.env
     proc_env = wutils.get_proc_env()
-
-    if not env['DOXYGEN']:
-        Logs.error("waf configure did not detect doxygen in the system -> cannot build api docs.")
-        raise SystemExit(1)
-        return
-
     try:
         program_obj = wutils.find_program('print-introspected-doxygen', env)
     except ValueError: 
@@ -1248,6 +1274,8 @@ def _doxygen(bld):
                    "generating doxygen docs...")
         raise SystemExit(1)
 
+    Logs.info("Running print-introspected-doxygen")
+
     # Create a header file with the introspected information.
     doxygen_out = open(os.path.join('doc', 'introspected-doxygen.h'), 'w')
     if subprocess.Popen([prog], stdout=doxygen_out, env=proc_env).wait():
@@ -1260,12 +1288,115 @@ def _doxygen(bld):
         raise SystemExit(1)
     text_out.close()
 
+    # Gather the CommandLine doxy
+    # test.py appears not to create or keep the output directory
+    # if no real tests are run, so we just stuff all the
+    # .command-line output files into testpy-output/
+    # NS_COMMANDLINE_INTROSPECTION=".." test.py --nowaf --constrain=example
+    Logs.info("Running CommandLine introspection")
+    proc_env['NS_COMMANDLINE_INTROSPECTION'] = '..'
+    subprocess.run(["./test.py", "--nowaf", "--constrain=example"],
+                   env=proc_env, stdout=subprocess.DEVNULL)
+    
+    doxygen_out = os.path.join('doc', 'introspected-command-line.h')
+    try:
+        os.remove(doxygen_out)
+    except OSError as e:
+        pass
+
+    with open(doxygen_out, 'w') as out_file:
+        lines="""
+/* This file is automatically generated by
+CommandLine::PrintDoxygenUsage() from the CommandLine configuration
+in various example programs.  Do not edit this file!  Edit the
+CommandLine configuration in those files instead.
+*/\n
+"""
+        out_file.write(lines)
+    out_file.close()
+
+    with open(doxygen_out,'a') as outfile:
+        for in_file in glob.glob('testpy-output/*.command-line'):
+            with open(in_file,'r') as infile:
+                outfile.write(infile.read())
+                
+def _doxygen(bld, skip_pid=False):
+    env = wutils.bld.env
+    proc_env = wutils.get_proc_env()
+
+    if not env['DOXYGEN']:
+        Logs.error("waf configure did not detect doxygen in the system -> cannot build api docs.")
+        raise SystemExit(1)
+        return
+
+    if not skip_pid:
+        _print_introspected_doxygen(bld)
+
     _getVersion()
     doxygen_config = os.path.join('doc', 'doxygen.conf')
     if subprocess.Popen(env['DOXYGEN'] + [doxygen_config]).wait():
         Logs.error("Doxygen build returned an error.")
         raise SystemExit(1)
 
+def _docset(bld):
+    # Get the doxygen config
+    doxyfile = os.path.join('doc', 'doxygen.conf')
+    Logs.info("docset: reading " + doxyfile)
+    doxygen_config = open(doxyfile, 'r')
+    doxygen_config_contents = doxygen_config.read()
+    doxygen_config.close()
+
+    # Create the output directory
+    docset_path = os.path.join('doc', 'docset')
+    Logs.info("docset: checking for output directory " + docset_path)
+    if not os.path.exists(docset_path):
+        Logs.info("docset: creating output directory " + docset_path)
+        os.mkdir(docset_path)
+
+    doxyfile = os.path.join('doc', 'doxygen.docset.conf')
+    doxygen_config = open(doxyfile, 'w')
+    Logs.info("docset: writing doxygen conf " + doxyfile)
+    doxygen_config.write(doxygen_config_contents)
+    doxygen_config.write(
+        """
+        HAVE_DOT = NO
+        GENERATE_DOCSET = YES
+        DISABLE_INDEX = YES
+        SEARCHENGINE = NO
+        GENERATE_TREEVIEW = NO
+        OUTPUT_DIRECTORY=""" + docset_path + "\n"
+        )
+    doxygen_config.close()
+
+    # Run Doxygen manually, so as to avoid build
+    Logs.info("docset: running doxygen")
+    env = wutils.bld.env
+    _getVersion()
+    if subprocess.Popen(env['DOXYGEN'] + [doxyfile]).wait():
+        Logs.error("Doxygen docset build returned an error.")
+        raise SystemExit(1)
+
+    # Build docset
+    docset_path = os.path.join(docset_path, 'html')
+    Logs.info("docset: Running docset Make")
+    if subprocess.Popen(["make"], cwd=docset_path).wait():
+        Logs.error("Docset make returned and error.")
+        raise SystemExit(1)
+
+    # Additional steps from
+    #   https://github.com/Kapeli/Dash-User-Contributions/tree/master/docsets/ns-3
+    docset_out = os.path.join(docset_path, 'org.nsnam.ns3.docset')
+    icons = os.path.join('doc', 'ns3_html_theme', 'static')
+    shutil.copy(os.path.join(icons, 'ns-3-bars-16x16.png'),
+                os.path.join(docset_out, 'icon.png'))
+    shutil.copy(os.path.join(icons, 'ns-3-bars-32x32.png'),
+                os.path.join(docset_out, 'icon@x2.png'))
+    shutil.copy(os.path.join(docset_path, 'Info.plist'),
+                os.path.join(docset_out, 'Contents'))
+    shutil.move(docset_out, os.path.join('doc', 'ns-3.docset'))
+
+    print("Docset built successfully.")
+    
 
 def _getVersion():
     """update the ns3_version.js file, when building documentation"""
@@ -1302,7 +1433,7 @@ class Ns3SphinxContext(Context.Context):
 
     def execute(self):
         _getVersion()
-        for sphinxdir in ["manual", "models", "tutorial", "tutorial-pt-br"] :
+        for sphinxdir in ["manual", "models", "tutorial"] :
             self.sphinx_build(os.path.join("doc", sphinxdir))
      
 

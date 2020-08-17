@@ -22,7 +22,8 @@
  */
 
 #include "tcp-prr-recovery.h"
-#include "ns3/tcp-congestion-ops.h"
+#include "tcp-socket-state.h"
+
 #include "ns3/log.h"
 
 namespace ns3 {
@@ -101,7 +102,14 @@ TcpPrrRecovery::DoRecovery (Ptr<TcpSocketState> tcb, uint32_t deliveredBytes)
         }
       else if (m_reductionBoundMode == SSRB)
         {
-          limit = std::max (m_prrDelivered - m_prrOut, deliveredBytes) + tcb->m_segmentSize;
+          if (tcb->m_isRetransDataAcked)
+            {
+              limit = std::max (m_prrDelivered - m_prrOut, deliveredBytes) + tcb->m_segmentSize;
+            }
+          else
+            {
+              limit = deliveredBytes;
+            }
         }
       sendCount = std::min (limit, static_cast<int> (tcb->m_ssThresh - tcb->m_bytesInFlight));
     }

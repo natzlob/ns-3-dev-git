@@ -624,125 +624,6 @@ RegularWifiMac::SetCtsToSelfSupported (bool enable)
 }
 
 void
-RegularWifiMac::SetSlot (Time slotTime)
-{
-  NS_LOG_FUNCTION (this << slotTime);
-  m_channelAccessManager->SetSlot (slotTime);
-  m_low->SetSlotTime (slotTime);
-}
-
-Time
-RegularWifiMac::GetSlot (void) const
-{
-  return m_low->GetSlotTime ();
-}
-
-void
-RegularWifiMac::SetSifs (Time sifs)
-{
-  NS_LOG_FUNCTION (this << sifs);
-  m_channelAccessManager->SetSifs (sifs);
-  m_low->SetSifs (sifs);
-}
-
-Time
-RegularWifiMac::GetSifs (void) const
-{
-  return m_low->GetSifs ();
-}
-
-void
-RegularWifiMac::SetEifsNoDifs (Time eifsNoDifs)
-{
-  NS_LOG_FUNCTION (this << eifsNoDifs);
-  m_channelAccessManager->SetEifsNoDifs (eifsNoDifs);
-}
-
-Time
-RegularWifiMac::GetEifsNoDifs (void) const
-{
-  return m_channelAccessManager->GetEifsNoDifs ();
-}
-
-void
-RegularWifiMac::SetRifs (Time rifs)
-{
-  NS_LOG_FUNCTION (this << rifs);
-  m_low->SetRifs (rifs);
-}
-
-Time
-RegularWifiMac::GetRifs (void) const
-{
-  return m_low->GetRifs ();
-}
-
-void
-RegularWifiMac::SetPifs (Time pifs)
-{
-  NS_LOG_FUNCTION (this << pifs);
-  m_low->SetPifs (pifs);
-}
-
-Time
-RegularWifiMac::GetPifs (void) const
-{
-  return m_low->GetPifs ();
-}
-
-void
-RegularWifiMac::SetAckTimeout (Time ackTimeout)
-{
-  NS_LOG_FUNCTION (this << ackTimeout);
-  m_low->SetAckTimeout (ackTimeout);
-}
-
-Time
-RegularWifiMac::GetAckTimeout (void) const
-{
-  return m_low->GetAckTimeout ();
-}
-
-void
-RegularWifiMac::SetCtsTimeout (Time ctsTimeout)
-{
-  NS_LOG_FUNCTION (this << ctsTimeout);
-  m_low->SetCtsTimeout (ctsTimeout);
-}
-
-Time
-RegularWifiMac::GetCtsTimeout (void) const
-{
-  return m_low->GetCtsTimeout ();
-}
-
-void
-RegularWifiMac::SetBasicBlockAckTimeout (Time blockAckTimeout)
-{
-  NS_LOG_FUNCTION (this << blockAckTimeout);
-  m_low->SetBasicBlockAckTimeout (blockAckTimeout);
-}
-
-Time
-RegularWifiMac::GetBasicBlockAckTimeout (void) const
-{
-  return m_low->GetBasicBlockAckTimeout ();
-}
-
-void
-RegularWifiMac::SetCompressedBlockAckTimeout (Time blockAckTimeout)
-{
-  NS_LOG_FUNCTION (this << blockAckTimeout);
-  m_low->SetCompressedBlockAckTimeout (blockAckTimeout);
-}
-
-Time
-RegularWifiMac::GetCompressedBlockAckTimeout (void) const
-{
-  return m_low->GetCompressedBlockAckTimeout ();
-}
-
-void
 RegularWifiMac::SetAddress (Mac48Address address)
 {
   NS_LOG_FUNCTION (this << address);
@@ -801,38 +682,7 @@ RegularWifiMac::GetShortSlotTimeSupported (void) const
 }
 
 void
-RegularWifiMac::SetRifsSupported (bool enable)
-{
-  NS_LOG_FUNCTION (this << enable);
-  Ptr<WifiNetDevice> device = DynamicCast<WifiNetDevice> (GetDevice ());
-  if (device)
-    {
-      Ptr<HtConfiguration> htConfiguration = device->GetHtConfiguration ();
-      if (htConfiguration)
-        {
-          htConfiguration->SetRifsSupported (enable);
-        }
-    }
-  m_rifsSupported = enable;
-}
-
-bool
-RegularWifiMac::GetRifsSupported (void) const
-{
-  Ptr<WifiNetDevice> device = DynamicCast<WifiNetDevice> (GetDevice ());
-  if (device)
-    {
-      Ptr<HtConfiguration> htConfiguration = device->GetHtConfiguration ();
-      if (htConfiguration)
-        {
-          return htConfiguration->GetRifsSupported ();
-        }
-    }
-  return m_rifsSupported;
-}
-
-void
-RegularWifiMac::Enqueue (Ptr<const Packet> packet,
+RegularWifiMac::Enqueue (Ptr<Packet> packet,
                          Mac48Address to, Mac48Address from)
 {
   //We expect RegularWifiMac subclasses which do support forwarding (e.g.,
@@ -850,17 +700,19 @@ RegularWifiMac::SupportsSendFrom (void) const
 }
 
 void
-RegularWifiMac::ForwardUp (Ptr<Packet> packet, Mac48Address from, Mac48Address to)
+RegularWifiMac::ForwardUp (Ptr<const Packet> packet, Mac48Address from, Mac48Address to)
 {
   NS_LOG_FUNCTION (this << packet << from << to);
   m_forwardUp (packet, from, to);
 }
 
 void
-RegularWifiMac::Receive (Ptr<Packet> packet, const WifiMacHeader *hdr)
+RegularWifiMac::Receive (Ptr<WifiMacQueueItem> mpdu)
 {
-  NS_LOG_FUNCTION (this << packet << hdr);
+  NS_LOG_FUNCTION (this << *mpdu);
 
+  const WifiMacHeader* hdr = &mpdu->GetHeader ();
+  Ptr<Packet> packet = mpdu->GetPacket ()->Copy ();
   Mac48Address to = hdr->GetAddr1 ();
   Mac48Address from = hdr->GetAddr2 ();
 
@@ -955,15 +807,13 @@ RegularWifiMac::Receive (Ptr<Packet> packet, const WifiMacHeader *hdr)
 }
 
 void
-RegularWifiMac::DeaggregateAmsduAndForward (Ptr<Packet> aggregatedPacket, const WifiMacHeader *hdr)
+RegularWifiMac::DeaggregateAmsduAndForward (Ptr<WifiMacQueueItem> mpdu)
 {
-  NS_LOG_FUNCTION (this << aggregatedPacket << hdr);
-  MsduAggregator::DeaggregatedMsdus packets = MsduAggregator::Deaggregate (aggregatedPacket);
-  for (MsduAggregator::DeaggregatedMsdusCI i = packets.begin ();
-       i != packets.end (); ++i)
+  NS_LOG_FUNCTION (this << *mpdu);
+  for (auto& msduPair : *PeekPointer (mpdu))
     {
-      ForwardUp ((*i).first, (*i).second.GetSourceAddr (),
-                 (*i).second.GetDestinationAddr ());
+      ForwardUp (msduPair.first, msduPair.second.GetSourceAddr (),
+                 msduPair.second.GetDestinationAddr ());
     }
 }
 
@@ -976,7 +826,7 @@ RegularWifiMac::SendAddBaResponse (const MgtAddBaRequestHeader *reqHdr,
   hdr.SetType (WIFI_MAC_MGT_ACTION);
   hdr.SetAddr1 (originator);
   hdr.SetAddr2 (GetAddress ());
-  hdr.SetAddr3 (GetAddress ());
+  hdr.SetAddr3 (GetBssid ());
   hdr.SetDsNotFrom ();
   hdr.SetDsNotTo ();
 
@@ -1151,7 +1001,7 @@ RegularWifiMac::GetTypeId (void)
                    MakeUintegerAccessor (&RegularWifiMac::SetBkBlockAckThreshold),
                    MakeUintegerChecker<uint8_t> (0, 64))
     .AddAttribute ("VO_BlockAckInactivityTimeout",
-                   "Represents max time (blocks of 1024 micro seconds) allowed for block ack"
+                   "Represents max time (blocks of 1024 microseconds) allowed for block ack"
                    "inactivity for AC_VO. If this value isn't equal to 0 a timer start after that a"
                    "block ack setup is completed and will be reset every time that a block ack"
                    "frame is received. If this value is 0, block ack inactivity timeout won't be used.",
@@ -1159,7 +1009,7 @@ RegularWifiMac::GetTypeId (void)
                    MakeUintegerAccessor (&RegularWifiMac::SetVoBlockAckInactivityTimeout),
                    MakeUintegerChecker<uint16_t> ())
     .AddAttribute ("VI_BlockAckInactivityTimeout",
-                   "Represents max time (blocks of 1024 micro seconds) allowed for block ack"
+                   "Represents max time (blocks of 1024 microseconds) allowed for block ack"
                    "inactivity for AC_VI. If this value isn't equal to 0 a timer start after that a"
                    "block ack setup is completed and will be reset every time that a block ack"
                    "frame is received. If this value is 0, block ack inactivity timeout won't be used.",
@@ -1167,7 +1017,7 @@ RegularWifiMac::GetTypeId (void)
                    MakeUintegerAccessor (&RegularWifiMac::SetViBlockAckInactivityTimeout),
                    MakeUintegerChecker<uint16_t> ())
     .AddAttribute ("BE_BlockAckInactivityTimeout",
-                   "Represents max time (blocks of 1024 micro seconds) allowed for block ack"
+                   "Represents max time (blocks of 1024 microseconds) allowed for block ack"
                    "inactivity for AC_BE. If this value isn't equal to 0 a timer start after that a"
                    "block ack setup is completed and will be reset every time that a block ack"
                    "frame is received. If this value is 0, block ack inactivity timeout won't be used.",
@@ -1175,7 +1025,7 @@ RegularWifiMac::GetTypeId (void)
                    MakeUintegerAccessor (&RegularWifiMac::SetBeBlockAckInactivityTimeout),
                    MakeUintegerChecker<uint16_t> ())
     .AddAttribute ("BK_BlockAckInactivityTimeout",
-                   "Represents max time (blocks of 1024 micro seconds) allowed for block ack"
+                   "Represents max time (blocks of 1024 microseconds) allowed for block ack"
                    "inactivity for AC_BK. If this value isn't equal to 0 a timer start after that a"
                    "block ack setup is completed and will be reset every time that a block ack"
                    "frame is received. If this value is 0, block ack inactivity timeout won't be used.",
@@ -1188,13 +1038,6 @@ RegularWifiMac::GetTypeId (void)
                    MakeBooleanAccessor (&RegularWifiMac::SetShortSlotTimeSupported,
                                         &RegularWifiMac::GetShortSlotTimeSupported),
                    MakeBooleanChecker ())
-    .AddAttribute ("RifsSupported",
-                   "Whether or not RIFS is supported (only used by HT APs or STAs).",
-                   BooleanValue (false),
-                   MakeBooleanAccessor (&RegularWifiMac::SetRifsSupported,
-                                        &RegularWifiMac::GetRifsSupported),
-                   MakeBooleanChecker (),
-                   TypeId::DEPRECATED, "Use the HtConfiguration instead")
     .AddAttribute ("Txop",
                    "The Txop object.",
                    PointerValue (),
@@ -1233,7 +1076,7 @@ RegularWifiMac::GetTypeId (void)
 }
 
 void
-RegularWifiMac::FinishConfigureStandard (WifiPhyStandard standard)
+RegularWifiMac::ConfigureStandard (WifiPhyStandard standard)
 {
   NS_LOG_FUNCTION (this << standard);
   uint32_t cwmin = 0;
@@ -1248,7 +1091,6 @@ RegularWifiMac::FinishConfigureStandard (WifiPhyStandard standard)
         //To be removed once deprecated attributes are removed
         Ptr<HtConfiguration> htConfiguration = GetHtConfiguration ();
         NS_ASSERT (htConfiguration);
-        htConfiguration->SetRifsSupported (m_rifsSupported);
         SetQosSupported (true);
         cwmin = 15;
         cwmax = 1023;
@@ -1258,10 +1100,8 @@ RegularWifiMac::FinishConfigureStandard (WifiPhyStandard standard)
     case WIFI_PHY_STANDARD_80211n_2_4GHZ:
       {
         EnableAggregation ();
-        //To be removed once deprecated RifsSupported attribute is removed
         Ptr<HtConfiguration> htConfiguration = GetHtConfiguration ();
         NS_ASSERT (htConfiguration);
-        htConfiguration->SetRifsSupported (m_rifsSupported);
         SetQosSupported (true);
       }
     case WIFI_PHY_STANDARD_80211g:

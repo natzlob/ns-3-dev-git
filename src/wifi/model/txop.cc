@@ -29,6 +29,7 @@
 #include "mac-tx-middle.h"
 #include "mac-low.h"
 #include "wifi-remote-station-manager.h"
+#include "wifi-mac-trailer.h"
 
 #undef NS_LOG_APPEND_CONTEXT
 #define NS_LOG_APPEND_CONTEXT if (m_low != 0) { std::clog << "[mac=" << m_low->GetAddress () << "] "; }
@@ -304,16 +305,26 @@ Txop::GetTxopLimit (void) const
   return m_txopLimit;
 }
 
+bool
+Txop::HasFramesToTransmit (void)
+{
+  bool ret = (m_currentPacket != 0 || !m_queue->IsEmpty ());
+  NS_LOG_FUNCTION (this << ret);
+  return ret;
+}
+
 void
-Txop::Queue (Ptr<const Packet> packet, const WifiMacHeader &hdr)
+Txop::Queue (Ptr<Packet> packet, const WifiMacHeader &hdr)
 {
   NS_LOG_FUNCTION (this << packet << &hdr);
-  Ptr<Packet> packetCopy = packet->Copy ();
   // remove the priority tag attached, if any
   SocketPriorityTag priorityTag;
-  packetCopy->RemovePacketTag (priorityTag);
-  m_stationManager->PrepareForQueue (hdr.GetAddr1 (), &hdr, packetCopy);
-  m_queue->Enqueue (Create<WifiMacQueueItem> (packetCopy, hdr));
+  packet->RemovePacketTag (priorityTag);
+  if (m_channelAccessManager->NeedBackoffUponAccess (this))
+    {
+      GenerateBackoff ();
+    }
+  m_queue->Enqueue (Create<WifiMacQueueItem> (packet, hdr));
   StartAccessIfNeeded ();
 }
 
@@ -363,9 +374,7 @@ Txop::DoInitialize ()
   NS_LOG_FUNCTION (this);
   ResetCw ();
   m_cwTrace = GetCw ();
-  m_backoff = m_rng->GetInteger (0, GetCw ());
-  m_backoffTrace (m_backoff);
-  StartBackoffNow (m_backoff);
+  GenerateBackoff ();
 }
 
 bool
@@ -524,12 +533,8 @@ Txop::NotifyAccessGranted (void)
         }
       else
         {
-          WifiTxVector dataTxVector = m_stationManager->GetDataTxVector (m_currentHdr.GetAddr1 (),
-                                                                         &m_currentHdr, m_currentPacket);
-
-          if (m_stationManager->NeedRts (m_currentHdr.GetAddr1 (), &m_currentHdr,
-                                         m_currentPacket, dataTxVector)
-              && !m_low->IsCfPeriod ())
+          uint32_t size = m_currentHdr.GetSize () + m_currentPacket->GetSize () + WIFI_MAC_FCS_LENGTH;
+          if (m_stationManager->NeedRts (m_currentHdr, size) && !m_low->IsCfPeriod ())
             {
               m_currentParams.EnableRts ();
             }
@@ -545,19 +550,19 @@ Txop::NotifyAccessGranted (void)
 }
 
 void
-Txop::NotifyInternalCollision (void)
-{
-  NS_LOG_FUNCTION (this);
-  NotifyCollision ();
-}
-
-void
-Txop::NotifyCollision (void)
+Txop::GenerateBackoff (void)
 {
   NS_LOG_FUNCTION (this);
   m_backoff = m_rng->GetInteger (0, GetCw ());
   m_backoffTrace (m_backoff);
   StartBackoffNow (m_backoff);
+}
+
+void
+Txop::NotifyInternalCollision (void)
+{
+  NS_LOG_FUNCTION (this);
+  GenerateBackoff ();
   RestartAccessIfNeeded ();
 }
 
@@ -615,7 +620,7 @@ Txop::MissedCts (void)
         {
           m_txFailedCallback (m_currentHdr);
         }
-      //to reset the dcf.
+      //to reset the Txop.
       m_currentPacket = 0;
       ResetCw ();
       m_cwTrace = GetCw ();
@@ -625,9 +630,7 @@ Txop::MissedCts (void)
       UpdateFailedCw ();
       m_cwTrace = GetCw ();
     }
-  m_backoff = m_rng->GetInteger (0, GetCw ());
-  m_backoffTrace (m_backoff);
-  StartBackoffNow (m_backoff);
+  GenerateBackoff ();
   RestartAccessIfNeeded ();
 }
 
@@ -650,9 +653,7 @@ Txop::GotAck (void)
       m_currentPacket = 0;
       ResetCw ();
       m_cwTrace = GetCw ();
-      m_backoff = m_rng->GetInteger (0, GetCw ());
-      m_backoffTrace (m_backoff);
-      StartBackoffNow (m_backoff);
+      GenerateBackoff ();
       RestartAccessIfNeeded ();
     }
   else
@@ -675,7 +676,7 @@ Txop::MissedAck (void)
         {
           m_txFailedCallback (m_currentHdr);
         }
-      //to reset the dcf.
+      //to reset the Txop.
       m_currentPacket = 0;
       ResetCw ();
       m_cwTrace = GetCw ();
@@ -689,9 +690,7 @@ Txop::MissedAck (void)
       UpdateFailedCw ();
       m_cwTrace = GetCw ();
     }
-  m_backoff = m_rng->GetInteger (0, GetCw ());
-  m_backoffTrace (m_backoff);
-  StartBackoffNow (m_backoff);
+  GenerateBackoff ();
   RestartAccessIfNeeded ();
 }
 
@@ -772,9 +771,7 @@ Txop::EndTxNoAck (void)
   m_currentPacket = 0;
   ResetCw ();
   m_cwTrace = GetCw ();
-  m_backoff = m_rng->GetInteger (0, GetCw ());
-  m_backoffTrace (m_backoff);
-  StartBackoffNow (m_backoff);
+  GenerateBackoff ();
   if (!m_txOkCallback.IsNull ())
     {
       m_txOkCallback (m_currentHdr);
@@ -873,7 +870,7 @@ Txop::StartNextPacket (void)
 }
 
 void
-Txop::GotBlockAck (const CtrlBAckResponseHeader *blockAck, Mac48Address recipient, double rxSnr, WifiMode txMode, double dataSnr)
+Txop::GotBlockAck (const CtrlBAckResponseHeader *blockAck, Mac48Address recipient, double rxSnr, double dataSnr, WifiTxVector dataTxVector)
 {
   NS_LOG_WARN ("GotBlockAck should not be called for non QoS!");
 }

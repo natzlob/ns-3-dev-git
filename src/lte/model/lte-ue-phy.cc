@@ -268,6 +268,14 @@ LteUePhy::GetTypeId (void)
                    UintegerValue (1),
                    MakeUintegerAccessor (&LteUePhy::m_rsrpSinrSamplePeriod),
                    MakeUintegerChecker<uint16_t> ())
+    .AddTraceSource ("ReportUlPhyResourceBlocks",
+                     "UL transmission PHY layer resource blocks.",
+                     MakeTraceSourceAccessor (&LteUePhy::m_reportUlPhyResourceBlocks),
+                     "ns3::LteUePhy::UlPhyResourceBlocksTracedCallback")
+    .AddTraceSource ("ReportPowerSpectralDensity",
+                     "Power Spectral Density data.",
+                     MakeTraceSourceAccessor (&LteUePhy::m_reportPowerSpectralDensity),
+                     "ns3::LteUePhy::PowerSpectralDensityTracedCallback")
     .AddTraceSource ("UlPhyTransmission",
                      "DL transmission PHY layer statistics.",
                      MakeTraceSourceAccessor (&LteUePhy::m_ulPhyTransmission),
@@ -541,6 +549,7 @@ LteUePhy::CreateTxPowerSpectralDensity ()
   NS_LOG_FUNCTION (this);
   LteSpectrumValueHelper psdHelper;
   Ptr<SpectrumValue> psd = psdHelper.CreateUlTxPowerSpectralDensity (m_ulEarfcn, m_ulBandwidth, m_txPower, GetSubChannelsForTransmission ());
+  m_reportPowerSpectralDensity (m_rnti, psd);
 
   return psd;
 }
@@ -1096,6 +1105,7 @@ LteUePhy::ReceiveLteControlMessageList (std::list<Ptr<LteControlMessage> > msgLi
               ulRb.push_back (i + dci.m_rbStart);
               //NS_LOG_DEBUG (this << " UE RB " << i + dci.m_rbStart);
             }
+          m_reportUlPhyResourceBlocks (m_rnti, ulRb);
           QueueSubChannelsForTransmission (ulRb);
           // fire trace of UL Tx PHY stats
           HarqProcessInfoList_t harqInfoList = m_harqPhyModule->GetHarqProcessInfoUl (m_rnti, 0);
@@ -1434,7 +1444,7 @@ LteUePhy::DoSynchronizeWithEnb (uint16_t cellId)
 }
 
 void
-LteUePhy::DoSetDlBandwidth (uint8_t dlBandwidth)
+LteUePhy::DoSetDlBandwidth (uint16_t dlBandwidth)
 {
   NS_LOG_FUNCTION (this << (uint32_t) dlBandwidth);
   if (m_dlBandwidth != dlBandwidth or !m_dlConfigured)
@@ -1465,7 +1475,7 @@ LteUePhy::DoSetDlBandwidth (uint8_t dlBandwidth)
 
 
 void 
-LteUePhy::DoConfigureUplink (uint32_t ulEarfcn, uint8_t ulBandwidth)
+LteUePhy::DoConfigureUplink (uint32_t ulEarfcn, uint16_t ulBandwidth)
 {
   m_ulEarfcn = ulEarfcn;
   m_ulBandwidth = ulBandwidth;
@@ -1732,10 +1742,10 @@ LteUePhy::SetTxModeGain (uint8_t txMode, double gain)
 
 
 void
-LteUePhy::ReceiveLteDlHarqFeedback (DlInfoListElement_s m)
+LteUePhy::EnqueueDlHarqFeedback (DlInfoListElement_s m)
 {
   NS_LOG_FUNCTION (this);
-  // generate feedback to eNB and send it through ideal PUCCH
+  // get the feedback from LteSpectrumPhy and send it through ideal PUCCH to eNB
   Ptr<DlHarqFeedbackLteControlMessage> msg = Create<DlHarqFeedbackLteControlMessage> ();
   msg->SetDlHarqFeedback (m);
   SetControlMessages (msg);

@@ -163,7 +163,7 @@ int main (int argc, char *argv[])
   int stepsSize = 1;
   int stepsTime = 1;
 
-  CommandLine cmd;
+  CommandLine cmd (__FILE__);
   cmd.AddValue ("staManager", "PRC Manager of the STA", staManager);
   cmd.AddValue ("apManager", "PRC Manager of the AP", apManager);
   cmd.AddValue ("standard", "Wifi Phy Standard", standard);
@@ -345,8 +345,8 @@ int main (int argc, char *argv[])
                    MakeCallback (&NodeStatistics::RxCallback, &atpCounter));
 
   //Callbacks to print every change of rate
-  Config::Connect ("/NodeList/0/DeviceList/*/$ns3::WifiNetDevice/RemoteStationManager/$" + apManager + "/RateChange",
-                   MakeCallback (RateCallback));
+  Config::ConnectFailSafe ("/NodeList/0/DeviceList/*/$ns3::WifiNetDevice/RemoteStationManager/$" + apManager + "/RateChange",
+                           MakeCallback (RateCallback));
 
   Simulator::Stop (Seconds (simuTime));
   Simulator::Run ();

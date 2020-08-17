@@ -572,7 +572,10 @@ void Icmpv6L4Protocol::HandleNS (Ptr<Packet> packet, Ipv6Address const &src, Ipv
     }
 
   hardwareAddress = interface->GetDevice ()->GetAddress ();
-  NdiscCache::Ipv6PayloadHeaderPair p = ForgeNA (target.IsLinkLocal () ? interface->GetLinkLocalAddress ().GetAddress () : ifaddr.GetAddress (), src.IsAny () ? Ipv6Address::GetAllNodesMulticast () : src, &hardwareAddress, flags );
+  NdiscCache::Ipv6PayloadHeaderPair p = ForgeNA (target.IsLinkLocal () ? interface->GetLinkLocalAddress ().GetAddress () : ifaddr.GetAddress (),
+                                                 src.IsAny () ? dst : src, // DAD replies must go to the multicast group it was sent to.
+                                                 &hardwareAddress,
+                                                 flags );
   interface->Send (p.first, p.second, src.IsAny () ? Ipv6Address::GetAllNodesMulticast () : src);
 
   /* not a NS for us discard it */
@@ -798,7 +801,7 @@ void Icmpv6L4Protocol::HandleRedirection (Ptr<Packet> packet, Ipv6Address const 
         {
           entry = cache->Add (redirTarget);
           /* destination and target different => necessarily a router */
-          entry->SetRouter (!redirTarget.IsEqual (redirDestination) ? true : false);
+          entry->SetRouter (redirTarget != redirDestination);
           entry->SetMacAddress (llOptionHeader.GetAddress ());
           entry->MarkStale ();
         }
@@ -823,7 +826,7 @@ void Icmpv6L4Protocol::HandleRedirection (Ptr<Packet> packet, Ipv6Address const 
   /* add redirection in routing table */
   Ptr<Ipv6> ipv6 = m_node->GetObject<Ipv6> ();
 
-  if (redirTarget.IsEqual (redirDestination))
+  if (redirTarget == redirDestination)
     {
       ipv6->GetRoutingProtocol ()->NotifyAddRoute (redirDestination, Ipv6Prefix (128), Ipv6Address ("::"), ipv6->GetInterfaceForAddress (dst));
     }
@@ -1253,12 +1256,6 @@ NdiscCache::Ipv6PayloadHeaderPair Icmpv6L4Protocol::ForgeNS (Ipv6Address src, Ip
   Icmpv6NS ns (target);
   Icmpv6OptionLinkLayerAddress llOption (1, hardwareAddress);  /* we give our mac address in response */
 
-  /* if the source is unspec, multicast the NA to all-nodes multicast */
-  if (src == Ipv6Address::GetAny ())
-    {
-      dst = Ipv6Address::GetAllNodesMulticast ();
-    }
-
   NS_LOG_LOGIC ("Send NS ( from " << src << " to " << dst << " target " << target << ")");
 
   p->AddHeader (llOption);
@@ -1409,10 +1406,10 @@ bool Icmpv6L4Protocol::Lookup (Ptr<Packet> p, const Ipv6Header & ipHeader, Ipv6A
   return false;
 }
 
-void Icmpv6L4Protocol::FunctionDadTimeout (Ptr<Icmpv6L4Protocol> icmpv6, Ipv6Interface* interface, Ipv6Address addr)
+void Icmpv6L4Protocol::FunctionDadTimeout (Ipv6Interface* interface, Ipv6Address addr)
 {
-  NS_LOG_FUNCTION_NOARGS ();
-  NS_LOG_LOGIC (interface << " " << addr);
+  NS_LOG_FUNCTION  (this << interface << addr);
+
   Ipv6InterfaceAddress ifaddr;
   bool found = false;
   uint32_t i = 0;
@@ -1429,6 +1426,11 @@ void Icmpv6L4Protocol::FunctionDadTimeout (Ptr<Icmpv6L4Protocol> icmpv6, Ipv6Int
         }
     }
 
+  if (!found)
+    {
+      NS_LOG_LOGIC ("Can not find the address in the interface.");
+    }
+
   /* for the moment, this function is always called, if we was victim of a DAD the address is INVALID
    * and we do not set it to PREFERRED
    */
@@ -1440,14 +1442,19 @@ void Icmpv6L4Protocol::FunctionDadTimeout (Ptr<Icmpv6L4Protocol> icmpv6, Ipv6Int
       /* send an RS if our interface is not forwarding (router) and if address is a link-local ones
        * (because we will send RS with it)
        */
-      Ptr<Ipv6> ipv6 = icmpv6->m_node->GetObject<Ipv6> ();
+      Ptr<Ipv6> ipv6 = m_node->GetObject<Ipv6> ();
 
       if (!ipv6->IsForwarding (ipv6->GetInterfaceForDevice (interface->GetDevice ())) && addr.IsLinkLocal ())
         {
           /* \todo Add random delays before sending RS
            * because all nodes start at the same time, there will be many of RS around 1 second of simulation time
            */
-          Simulator::Schedule (Seconds (0.0), &Icmpv6L4Protocol::SendRS, PeekPointer (icmpv6), ifaddr.GetAddress (), Ipv6Address::GetAllRoutersMulticast (), interface->GetDevice ()->GetAddress ());
+          NS_LOG_LOGIC ("Scheduled a Router Solicitation");
+          Simulator::Schedule (Seconds (0.0), &Icmpv6L4Protocol::SendRS, this, ifaddr.GetAddress (), Ipv6Address::GetAllRoutersMulticast (), interface->GetDevice ()->GetAddress ());
+        }
+      else
+        {
+          NS_LOG_LOGIC ("Did not schedule a Router Solicitation because the interface is in forwarding mode");
         }
     }
 }

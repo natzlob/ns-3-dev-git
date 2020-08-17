@@ -587,23 +587,31 @@ protected:
    * \brief Forcefully set the initial cwnd
    *
    * \param who socket to force
-   * \param initialCwnd size of the initial cwnd
+   * \param initialCwnd size of the initial cwnd (segments)
    */
   void SetInitialCwnd (SocketWho who, uint32_t initialCwnd);
 
   /**
-   * \brief Forcefully set the ecn mode on
+   * \brief Forcefully set the delayed acknowledgement count
    *
    * \param who socket to force
-   * \param ecnMode Mode of ECN. Currently NoEcn and ClassicEcn is supported.
+   * \param count value of delayed ACKs
    */
-  void SetEcn (SocketWho who, TcpSocketBase::EcnMode_t ecnMode);
+  void SetDelAckMaxCount (SocketWho who, uint32_t count);
 
   /**
-   * \brief Forcefully set the initial ssth
+   * \brief Forcefully set the ECN mode of use
    *
    * \param who socket to force
-   * \param initialSsThresh size of the initial ssth
+   * \param useEcn Value representing the mode of ECN usage requested
+   */
+  void SetUseEcn (SocketWho who, TcpSocketState::UseEcn_t useEcn);
+
+  /**
+   * \brief Forcefully set the initial ssthresh
+   *
+   * \param who socket to force
+   * \param initialSsThresh Initial slow start threshold (bytes)
    */
   void SetInitialSsThresh (SocketWho who, uint32_t initialSsThresh);
 

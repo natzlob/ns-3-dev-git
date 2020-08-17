@@ -148,13 +148,13 @@ AarfWifiManager::DoReportRtsFailed (WifiRemoteStation *station)
  * The fundamental reason for this is that there is a backoff between each data
  * transmission, be it an initial transmission or a retransmission.
  *
- * \param st the station that we failed to send DATA
+ * \param st the station that we failed to send Data
  */
 void
 AarfWifiManager::DoReportDataFailed (WifiRemoteStation *st)
 {
   NS_LOG_FUNCTION (this << st);
-  AarfWifiRemoteStation *station = (AarfWifiRemoteStation *)st;
+  AarfWifiRemoteStation *station = static_cast<AarfWifiRemoteStation*> (st);
   station->m_timer++;
   station->m_failed++;
   station->m_success = 0;
@@ -212,11 +212,11 @@ AarfWifiManager::DoReportRtsOk (WifiRemoteStation *station,
 }
 
 void
-AarfWifiManager::DoReportDataOk (WifiRemoteStation *st,
-                                 double ackSnr, WifiMode ackMode, double dataSnr)
+AarfWifiManager::DoReportDataOk (WifiRemoteStation *st, double ackSnr, WifiMode ackMode,
+                                 double dataSnr, uint16_t dataChannelWidth, uint8_t dataNss)
 {
-  NS_LOG_FUNCTION (this << st << ackSnr << ackMode << dataSnr);
-  AarfWifiRemoteStation *station = (AarfWifiRemoteStation *) st;
+  NS_LOG_FUNCTION (this << st << ackSnr << ackMode << dataSnr << dataChannelWidth << +dataNss);
+  AarfWifiRemoteStation *station = static_cast<AarfWifiRemoteStation*> (st);
   station->m_timer++;
   station->m_success++;
   station->m_failed = 0;
@@ -250,7 +250,7 @@ WifiTxVector
 AarfWifiManager::DoGetDataTxVector (WifiRemoteStation *st)
 {
   NS_LOG_FUNCTION (this << st);
-  AarfWifiRemoteStation *station = (AarfWifiRemoteStation *) st;
+  AarfWifiRemoteStation *station = static_cast<AarfWifiRemoteStation*> (st);
   uint16_t channelWidth = GetChannelWidth (station);
   if (channelWidth > 20 && channelWidth != 22)
     {
@@ -269,9 +269,9 @@ WifiTxVector
 AarfWifiManager::DoGetRtsTxVector (WifiRemoteStation *st)
 {
   NS_LOG_FUNCTION (this << st);
-  /// \todo we could/should implement the Aarf algorithm for
+  /// \todo we could/should implement the AARF algorithm for
   /// RTS only by picking a single rate within the BasicRateSet.
-  AarfWifiRemoteStation *station = (AarfWifiRemoteStation *) st;
+  AarfWifiRemoteStation *station = static_cast<AarfWifiRemoteStation*> (st);
   uint16_t channelWidth = GetChannelWidth (station);
   if (channelWidth > 20 && channelWidth != 22)
     {
@@ -289,12 +289,6 @@ AarfWifiManager::DoGetRtsTxVector (WifiRemoteStation *st)
     }
   rtsTxVector = WifiTxVector (mode, GetDefaultTxPowerLevel (), GetPreambleForTransmission (mode.GetModulationClass (), GetShortPreambleEnabled (), UseGreenfieldForDestination (GetAddress (station))), 800, 1, 1, 0, channelWidth, GetAggregation (station), false);
   return rtsTxVector;
-}
-
-bool
-AarfWifiManager::IsLowLatency (void) const
-{
-  return true;
 }
 
 } //namespace ns3
