@@ -82,7 +82,7 @@ std::unordered_map<int, double> channelGainMap = {
   {1, 10}, {2, 8}, {3, 6}, {4, 4}, {5, 2}
 };
 
-NS_LOG_COMPONENT_DEFINE ("TestMeshScript");
+NS_LOG_COMPONENT_DEFINE ("TestMeshSpectrumChannelsScript");
 
 /**
  * \ingroup mesh
@@ -163,7 +163,7 @@ MeshTest::MeshTest () :
   m_ySize (3),
   m_step (50.0),
   m_randomStart (0.1),
-  m_totalTime (20.0),
+  m_totalTime (25.0),
   m_packetInterval (0.1),
   m_packetSize (1024),
   m_nIfaces (1),
@@ -215,10 +215,19 @@ MeshTest::CreateNodes ()
   // YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
   spectrumPhy = SpectrumWifiPhyHelper::Default ();
   // wifiChannel = YansWifiChannelHelper::Default ();
-  spectrumChannel = SpectrumChannelHelper::Default ();
-  // wifiChannel.AddPropagationLoss("ns3::FixedRssLossModel", "Rss", DoubleValue(rss));
-  // wifiPhy.SetChannel (wifiChannel.Create ());
-  spectrumPhy.SetChannel (spectrumChannel.Create ());
+  //spectrumChannel = SpectrumChannelHelper::Default ();
+  Ptr<MultiModelSpectrumChannel> spectrumChannel
+    = CreateObject<MultiModelSpectrumChannel> ();
+  Ptr<FriisPropagationLossModel> lossModel
+    = CreateObject<FriisPropagationLossModel> ();
+  lossModel->SetFrequency (2.417e9);
+  spectrumChannel->AddPropagationLossModel (lossModel);
+
+  Ptr<ConstantSpeedPropagationDelayModel> delayModel
+    = CreateObject<ConstantSpeedPropagationDelayModel> ();
+  spectrumChannel->SetPropagationDelayModel (delayModel);
+
+  spectrumPhy.SetChannel (spectrumChannel);
   /*
    * Create mesh helper and set stack installer to it
    * Stack installer creates all needed protocols and install them to
