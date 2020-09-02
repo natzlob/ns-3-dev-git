@@ -59,7 +59,9 @@
 #include "ns3/spectrum-helper.h"
 #include "ns3/multi-model-spectrum-channel.h"
 #include "ns3/propagation-loss-model.h"
-#include "cost231-propagation-loss-model.h"
+#include "ns3/cost231-propagation-loss-model.h"
+#include "ns3/channel.h"
+#include "ns3/spectrum-channel.h"
 
 using namespace ns3;
 
@@ -84,7 +86,11 @@ std::unordered_map<int, double> channelGainMap = {
   {1, 10}, {2, 8}, {3, 6}, {4, 4}, {5, 2}
 };
 
-NS_LOG_COMPONENT_DEFINE ("TestMeshSpectrumChannelsScript");
+std::unordered_map<int, double> channelLossMap = {
+  {1, -30}, {2, -40}, {3, -50}, {4, -60}, {5, -70}
+};
+
+NS_LOG_COMPONENT_DEFINE ("TestMeshSpectrumChannelsLossScript");
 
 /**
  * \ingroup mesh
@@ -109,8 +115,6 @@ public:
   int Run ();
   ///Get Phy pointer
   Ptr<WifiPhy> GetPhy (int i);
-  /// Map channel number to PropagationLossModel
-  void MapChanneltoLoss (YansWifiChannelHelper wifiChannel, uint16_t channelNumber);
   /// Get current channel numbers and map to loss
   void GetSetChannelNumber (uint16_t newChannelNumber);
   /// Get the current channel number and set to new channel number
@@ -133,6 +137,12 @@ private:
   std::string m_root; ///< root
   /// List of network nodes
   NodeContainer nodes;
+  /// Propagation loss model instances
+  Ptr<FriisPropagationLossModel> friisModel;
+  Ptr<Cost231PropagationLossModel> costModel;
+  Ptr<FixedRssLossModel> lossModel;
+  Ptr<FixedRssLossModel> fixedLoss1;
+  Ptr<FixedRssLossModel> fixedLoss2;
   /// List of all mesh point devices
   NetDeviceContainer meshDevices;
   /// Addresses of interfaces:
@@ -165,9 +175,9 @@ private:
 MeshTest::MeshTest () :
   m_xSize (3),
   m_ySize (3),
-  m_step (50.0),
+  m_step (5.0),
   m_randomStart (0.1),
-  m_totalTime (25.0),
+  m_totalTime (40.0),
   m_packetInterval (0.1),
   m_packetSize (1024),
   m_nIfaces (1),
@@ -210,32 +220,19 @@ MeshTest::Configure (int argc, char *argv[])
 }
 void MeshTest::PrepareChannels ()
 {
-  spectrumPhy = SpectrumWifiPhyHelper::Default ();
-  Ptr<MultiModelSpectrumChannel> spectrumChannel
-    = CreateObject<MultiModelSpectrumChannel> ();
-
-  Ptr<FriisPropagationLossModel> friisModel
-    = CreateObject<FriisPropagationLossModel> ();
+  friisModel = CreateObject<FriisPropagationLossModel> ();
   friisModel->SetFrequency (2.417e9);
 
-  Ptr<Cost231PropagationLossModel> costModel
-    = CreateObject<Cost231PropagationLossModel> ();
+  costModel = CreateObject<Cost231PropagationLossModel> ();
   costModel->SetAttribute ("Frequency", DoubleValue(2.417e9));
 
-  Ptr<FixedRssLossModel> fixedLoss1
-    =  CreateObject<FixedRssLossModel> ();
+  fixedLoss1 = CreateObject<FixedRssLossModel> ();
   fixedLoss1->SetRss (-70);
 
-  Ptr<FixedRssLossModel> fixedLoss2
-    =  CreateObject<FixedRssLossModel> ();
+  fixedLoss2 = CreateObject<FixedRssLossModel> ();
   fixedLoss2->SetRss (-60);
-
-  spectrumChannel->AddPropagationLossModel (friisModel);
-
-  Ptr<ConstantSpeedPropagationDelayModel> delayModel
-    = CreateObject<ConstantSpeedPropagationDelayModel> ();
-  spectrumChannel->SetPropagationDelayModel (delayModel);
 }
+
 void
 MeshTest::CreateNodes ()
 { 
@@ -246,13 +243,11 @@ MeshTest::CreateNodes ()
   // Configure YansWifiChannel
   // YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
   spectrumPhy = SpectrumWifiPhyHelper::Default ();
-  // wifiChannel = YansWifiChannelHelper::Default ();
-  //spectrumChannel = SpectrumChannelHelper::Default ();
   Ptr<MultiModelSpectrumChannel> spectrumChannel
     = CreateObject<MultiModelSpectrumChannel> ();
-  Ptr<FriisPropagationLossModel> lossModel
-    = CreateObject<FriisPropagationLossModel> ();
-  lossModel->SetFrequency (2.417e9);
+  lossModel = CreateObject<FixedRssLossModel> ();
+  lossModel->SetRss(-50);
+  //lossModel->SetFrequency (2.417e9);
   spectrumChannel->AddPropagationLossModel (lossModel);
 
   Ptr<ConstantSpeedPropagationDelayModel> delayModel
@@ -333,67 +328,46 @@ Ptr<WifiPhy> MeshTest::GetPhy (int i)
 
 }
 
-void MeshTest::MapChanneltoLoss (YansWifiChannelHelper wifiChannel, uint16_t channelNumber)
-{
-    if (channelNumber == 1)
-    {
-        wifiChannel.AddPropagationLoss("ns3::FixedRssLossModel", "Rss", DoubleValue(-60));
-    }
-    else if (channelNumber == 2)
-    {
-        wifiChannel.AddPropagationLoss("ns3::FixedRssLossModel", "Rss", DoubleValue(-65));
-    }
-    else if (channelNumber == 3)
-    {
-        wifiChannel.AddPropagationLoss("ns3::FixedRssLossModel", "Rss", DoubleValue(-70));
-    }
-    else if (channelNumber == 4)
-    {
-        wifiChannel.AddPropagationLoss("ns3::FixedRssLossModel", "Rss", DoubleValue(-75));
-    }
-    else if (channelNumber == 5)
-    {
-        wifiChannel.AddPropagationLoss("ns3::FixedRssLossModel", "Rss", DoubleValue(-80));
-    }
-    else
-    {
-        wifiChannel.AddPropagationLoss("ns3::FixedRssLossModel", "Rss", DoubleValue(-90));
-    }
-}
 void MeshTest::GetSetChannelNumber (uint16_t newChannelNumber)
 {
   // loop over all mesh points
   for (NetDeviceContainer::Iterator i = meshDevices.Begin(); i !=meshDevices.End(); ++i)
     {
-            Ptr<MeshPointDevice> mp = DynamicCast<MeshPointDevice>(*i);
-            NS_ASSERT (mp != 0);
-            // loop over all interfaces
-            std::vector<Ptr<NetDevice> > meshInterfaces = mp->GetInterfaces ();
+        Ptr<MeshPointDevice> mp = DynamicCast<MeshPointDevice>(*i);
+        NS_ASSERT (mp != 0);
+        // loop over all interfaces
+        std::vector<Ptr<NetDevice> > meshInterfaces = mp->GetInterfaces ();
 
-            for (std::vector<Ptr<NetDevice> >::iterator j = meshInterfaces.begin(); j != meshInterfaces.end(); ++j)
-            {
-                    Ptr<WifiNetDevice> ifdevice = DynamicCast<WifiNetDevice>(*j);
-                    if (ifdevice != 0) {
-                        NS_LOG_UNCOND("ifdevice pointer not empty");
-                    }
-                    else {
-                        NS_LOG_UNCOND("ifdevice pointer is null");
-                    }
-                    //access the WifiPhy ptr
-                    Ptr<WifiPhy> wifiPhyPtr = ifdevice->GetPhy ();
-                    NS_ASSERT(wifiPhyPtr != 0);
-                    // access MAC
-                    Ptr<MeshWifiInterfaceMac> ifmac = DynamicCast<MeshWifiInterfaceMac>(ifdevice->GetMac());
-                    NS_ASSERT (ifmac != 0);
-                    // Access channel number
-                    NS_LOG_UNCOND ("Old channel: " << ifmac->GetFrequencyChannel ());
-                    // Change channel 
-                    ifmac->SwitchFrequencyChannel (newChannelNumber);
-                    NS_LOG_UNCOND ("New channel: " << ifmac->GetFrequencyChannel ());
-                    wifiPhyPtr->SetRxGain(channelGainMap[newChannelNumber]);
-                    NS_LOG_UNCOND ("the receive gain is now " << wifiPhyPtr->GetRxGain());
-                    NS_LOG_UNCOND ("average signal (dBm) " << g_signalDbmAvg << " average noise (dBm) " << g_noiseDbmAvg);
+        for (std::vector<Ptr<NetDevice> >::iterator j = meshInterfaces.begin(); j != meshInterfaces.end(); ++j)
+        {
+            Ptr<WifiNetDevice> ifdevice = DynamicCast<WifiNetDevice>(*j);
+            if (ifdevice != 0) {
+                NS_LOG_UNCOND("ifdevice pointer not empty");
             }
+            else {
+                NS_LOG_UNCOND("ifdevice pointer is null");
+            }
+            //access the WifiPhy ptr
+            Ptr<WifiPhy> wifiPhyPtr = ifdevice->GetPhy ();
+            NS_ASSERT(wifiPhyPtr != 0);
+            // access MAC
+            NS_LOG_UNCOND("the configured wifi standard is " << wifiPhyPtr->GetStandard().Get());
+            Ptr<MeshWifiInterfaceMac> ifmac = DynamicCast<MeshWifiInterfaceMac>(ifdevice->GetMac());
+            NS_ASSERT (ifmac != 0);
+            // Access channel number)
+            NS_LOG_UNCOND ("Old channel: " << ifmac->GetFrequencyChannel ());
+            // Change channel 
+            ifmac->SwitchFrequencyChannel (newChannelNumber);
+            NS_LOG_UNCOND ("New channel: " << ifmac->GetFrequencyChannel ());
+        }
+        lossModel->SetRss(channelLossMap[newChannelNumber]);
+        NS_LOG_UNCOND ("set Rss to " << channelLossMap[newChannelNumber]);
+        
+        DoubleValue get_rss;
+        lossModel->GetAttribute("Rss", get_rss);
+        NS_LOG_UNCOND("Rss after setting = " << get_rss.Get());
+
+        NS_LOG_UNCOND ("average signal (dBm) " << g_signalDbmAvg << " average noise (dBm) " << g_noiseDbmAvg);
     }
 }
 void
@@ -439,12 +413,12 @@ MeshTest::Run ()
   CreateNodes ();
   InstallInternetStack ();
   Simulator::Schedule(Seconds (0), &MeshTest::GetSetChannelNumber, this, 1);
-  Simulator::Schedule(Seconds (5), &MeshTest::CalculateThroughput, this);
-  Simulator::Schedule(Seconds (5), &MeshTest::GetSetChannelNumber, this, 2);
   Simulator::Schedule(Seconds (10), &MeshTest::CalculateThroughput, this);
-  Simulator::Schedule(Seconds (10), &MeshTest::GetSetChannelNumber, this, 3);
-  Simulator::Schedule(Seconds (15), &MeshTest::CalculateThroughput, this);
-  Simulator::Schedule(Seconds (15), &MeshTest::GetSetChannelNumber, this, 4);
+  Simulator::Schedule(Seconds (10), &MeshTest::GetSetChannelNumber, this, 2);
+  Simulator::Schedule(Seconds (20), &MeshTest::CalculateThroughput, this);
+  Simulator::Schedule(Seconds (20), &MeshTest::GetSetChannelNumber, this, 3);
+  Simulator::Schedule(Seconds (30), &MeshTest::CalculateThroughput, this);
+  Simulator::Schedule(Seconds (30), &MeshTest::GetSetChannelNumber, this, 4);
   InstallApplication ();
   Simulator::Schedule (Seconds (m_totalTime), &MeshTest::Report, this);
   Config::ConnectWithoutContext ("/NodeList/0/DeviceList/*/Phy/MonitorSnifferRx", MakeCallback (&MonitorSniffRx));
