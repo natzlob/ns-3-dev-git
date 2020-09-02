@@ -59,7 +59,10 @@
 #include "ns3/spectrum-helper.h"
 #include "ns3/multi-model-spectrum-channel.h"
 #include "ns3/propagation-loss-model.h"
-#include "cost231-propagation-loss-model.h"
+#include "ns3/cost231-propagation-loss-model.h"
+#include "ns3/waveform-generator.h"
+#include "ns3/waveform-generator-helper.h"
+#include "ns3/non-communicating-net-device.h"
 
 using namespace ns3;
 
@@ -85,6 +88,24 @@ std::unordered_map<int, double> channelGainMap = {
 };
 
 NS_LOG_COMPONENT_DEFINE ("TestMeshSpectrumChannelsScript");
+
+Ptr<SpectrumModel> SpectrumModel2452MHz;
+
+class static_SpectrumModel2452MHz_initializer
+{
+public:
+    static_SpectrumModel2452MHz_initializer ()
+    {
+        BandInfo bandInfo;
+        bandInfo.fc = 2452e6;
+        bandInfo.fl = 2452e6 - 10e6;
+        bandInfo.fh = 2452e6 + 10e6;
+        Bands bands;
+        bands.push_back (bandInfo);
+
+        SpectrumModel2452MHz = Create<SpectrumModel> (bands);
+    }
+} static_SpectrumModel2452MHz_initializer_inst;
 
 /**
  * \ingroup mesh
@@ -127,6 +148,7 @@ private:
   bool      m_pcap; ///< PCAP
   bool      m_ascii; ///< ASCII
   double    rss;
+  double    waveformPower;
   double throughput;
   uint64_t totalPacketsThrough;
   std::string m_stack; ///< stack
@@ -134,6 +156,8 @@ private:
   /// List of network nodes
   NodeContainer nodes;
   /// List of all mesh point devices
+  NodeContainer interfNode;
+  /// Interfering node
   NetDeviceContainer meshDevices;
   /// Addresses of interfaces:
   Ipv4InterfaceContainer interfaces;
@@ -145,9 +169,13 @@ private:
   YansWifiChannelHelper wifiChannel;
   SpectrumWifiPhyHelper spectrumPhy;
   ///Spectrum channel helper
-  SpectrumChannelHelper spectrumChannel;
+  Ptr<MultiModelSpectrumChannel> spectrumChannel;
   ///ApplicationContainer for throughput measurement
   ApplicationContainer serverApps;
+  /// Helper for waveform generator
+  WaveformGeneratorHelper waveformGeneratorHelper;
+  /// container for waveform generator devices
+  NetDeviceContainer waveformGeneratorDevices;
 private:
   /// Setup channels with different propagation and delay models
   void PrepareChannels ();
@@ -156,6 +184,8 @@ private:
   /// Install internet m_stack on nodes
   void InstallInternetStack ();
   /// Install applications
+  void ConfigureWaveform ();
+  /// Configure waveform generator for interfering node
   void InstallApplication ();
   /// Calculate throughput
   double CalculateThroughput ();
@@ -167,7 +197,7 @@ MeshTest::MeshTest () :
   m_ySize (3),
   m_step (50.0),
   m_randomStart (0.1),
-  m_totalTime (25.0),
+  m_totalTime (100.0),
   m_packetInterval (0.1),
   m_packetSize (1024),
   m_nIfaces (1),
@@ -175,6 +205,7 @@ MeshTest::MeshTest () :
   m_pcap (false),
   m_ascii (true),
   rss (-50),
+  waveformPower (0.0),
   throughput (0),
   totalPacketsThrough (0),
   m_stack ("ns3::Dot11sStack"),
@@ -211,16 +242,15 @@ MeshTest::Configure (int argc, char *argv[])
 void MeshTest::PrepareChannels ()
 {
   spectrumPhy = SpectrumWifiPhyHelper::Default ();
-  Ptr<MultiModelSpectrumChannel> spectrumChannel
-    = CreateObject<MultiModelSpectrumChannel> ();
+  spectrumChannel = CreateObject<MultiModelSpectrumChannel> ();
 
   Ptr<FriisPropagationLossModel> friisModel
     = CreateObject<FriisPropagationLossModel> ();
-  friisModel->SetFrequency (2.417e9);
+  friisModel->SetFrequency (2.452e9);
 
   Ptr<Cost231PropagationLossModel> costModel
     = CreateObject<Cost231PropagationLossModel> ();
-  costModel->SetAttribute ("Frequency", DoubleValue(2.417e9));
+  costModel->SetAttribute ("Frequency", DoubleValue(2.452e9));
 
   Ptr<FixedRssLossModel> fixedLoss1
     =  CreateObject<FixedRssLossModel> ();
@@ -243,16 +273,16 @@ MeshTest::CreateNodes ()
    * Create m_ySize*m_xSize stations to form a grid topology
    */
   nodes.Create (m_ySize*m_xSize);
+  interfNode.Create(1);
   // Configure YansWifiChannel
   // YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
   spectrumPhy = SpectrumWifiPhyHelper::Default ();
   // wifiChannel = YansWifiChannelHelper::Default ();
   //spectrumChannel = SpectrumChannelHelper::Default ();
-  Ptr<MultiModelSpectrumChannel> spectrumChannel
-    = CreateObject<MultiModelSpectrumChannel> ();
+  spectrumChannel = CreateObject<MultiModelSpectrumChannel> ();
   Ptr<FriisPropagationLossModel> lossModel
     = CreateObject<FriisPropagationLossModel> ();
-  lossModel->SetFrequency (2.417e9);
+  lossModel->SetFrequency (2.452e9);
   spectrumChannel->AddPropagationLossModel (lossModel);
 
   Ptr<ConstantSpeedPropagationDelayModel> delayModel
@@ -260,6 +290,8 @@ MeshTest::CreateNodes ()
   spectrumChannel->SetPropagationDelayModel (delayModel);
 
   spectrumPhy.SetChannel (spectrumChannel);
+  spectrumPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
+  spectrumPhy.Set ("Frequency", UintegerValue(2452));
   /*
    * Create mesh helper and set stack installer to it
    * Stack installer creates all needed protocols and install them to
@@ -301,6 +333,14 @@ MeshTest::CreateNodes ()
                                  "LayoutType", StringValue ("RowFirst"));
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   mobility.Install (nodes);
+
+  MobilityHelper interfMobility;
+  Ptr<ListPositionAllocator> posAlloc = CreateObject<ListPositionAllocator> ();
+  posAlloc->Add (Vector (m_step, m_step, 0.0));
+  interfMobility.SetPositionAllocator (posAlloc);
+  interfMobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
+  interfMobility.Install (interfNode);
+
   if (m_pcap)
     // wifiPhy.EnablePcapAll (std::string ("mp-"));
     spectrumPhy.EnablePcapAll (std::string ("mp-"));
@@ -333,67 +373,40 @@ Ptr<WifiPhy> MeshTest::GetPhy (int i)
 
 }
 
-void MeshTest::MapChanneltoLoss (YansWifiChannelHelper wifiChannel, uint16_t channelNumber)
-{
-    if (channelNumber == 1)
-    {
-        wifiChannel.AddPropagationLoss("ns3::FixedRssLossModel", "Rss", DoubleValue(-60));
-    }
-    else if (channelNumber == 2)
-    {
-        wifiChannel.AddPropagationLoss("ns3::FixedRssLossModel", "Rss", DoubleValue(-65));
-    }
-    else if (channelNumber == 3)
-    {
-        wifiChannel.AddPropagationLoss("ns3::FixedRssLossModel", "Rss", DoubleValue(-70));
-    }
-    else if (channelNumber == 4)
-    {
-        wifiChannel.AddPropagationLoss("ns3::FixedRssLossModel", "Rss", DoubleValue(-75));
-    }
-    else if (channelNumber == 5)
-    {
-        wifiChannel.AddPropagationLoss("ns3::FixedRssLossModel", "Rss", DoubleValue(-80));
-    }
-    else
-    {
-        wifiChannel.AddPropagationLoss("ns3::FixedRssLossModel", "Rss", DoubleValue(-90));
-    }
-}
 void MeshTest::GetSetChannelNumber (uint16_t newChannelNumber)
 {
   // loop over all mesh points
   for (NetDeviceContainer::Iterator i = meshDevices.Begin(); i !=meshDevices.End(); ++i)
     {
-            Ptr<MeshPointDevice> mp = DynamicCast<MeshPointDevice>(*i);
-            NS_ASSERT (mp != 0);
-            // loop over all interfaces
-            std::vector<Ptr<NetDevice> > meshInterfaces = mp->GetInterfaces ();
+        Ptr<MeshPointDevice> mp = DynamicCast<MeshPointDevice>(*i);
+        NS_ASSERT (mp != 0);
+        // loop over all interfaces
+        std::vector<Ptr<NetDevice> > meshInterfaces = mp->GetInterfaces ();
 
-            for (std::vector<Ptr<NetDevice> >::iterator j = meshInterfaces.begin(); j != meshInterfaces.end(); ++j)
-            {
-                    Ptr<WifiNetDevice> ifdevice = DynamicCast<WifiNetDevice>(*j);
-                    if (ifdevice != 0) {
-                        NS_LOG_UNCOND("ifdevice pointer not empty");
-                    }
-                    else {
-                        NS_LOG_UNCOND("ifdevice pointer is null");
-                    }
-                    //access the WifiPhy ptr
-                    Ptr<WifiPhy> wifiPhyPtr = ifdevice->GetPhy ();
-                    NS_ASSERT(wifiPhyPtr != 0);
-                    // access MAC
-                    Ptr<MeshWifiInterfaceMac> ifmac = DynamicCast<MeshWifiInterfaceMac>(ifdevice->GetMac());
-                    NS_ASSERT (ifmac != 0);
-                    // Access channel number
-                    NS_LOG_UNCOND ("Old channel: " << ifmac->GetFrequencyChannel ());
-                    // Change channel 
-                    ifmac->SwitchFrequencyChannel (newChannelNumber);
-                    NS_LOG_UNCOND ("New channel: " << ifmac->GetFrequencyChannel ());
-                    wifiPhyPtr->SetRxGain(channelGainMap[newChannelNumber]);
-                    NS_LOG_UNCOND ("the receive gain is now " << wifiPhyPtr->GetRxGain());
-                    NS_LOG_UNCOND ("average signal (dBm) " << g_signalDbmAvg << " average noise (dBm) " << g_noiseDbmAvg);
-            }
+        for (std::vector<Ptr<NetDevice> >::iterator j = meshInterfaces.begin(); j != meshInterfaces.end(); ++j)
+        {
+            Ptr<WifiNetDevice> ifdevice = DynamicCast<WifiNetDevice>(*j);
+            //access the WifiPhy ptr
+            Ptr<WifiPhy> wifiPhyPtr = ifdevice->GetPhy ();
+            NS_ASSERT(wifiPhyPtr != 0);
+            // access MAC
+            NS_LOG_UNCOND("the configured channel number in phy is " << int(wifiPhyPtr->GetChannelNumber()));
+            Ptr<MeshWifiInterfaceMac> ifmac = DynamicCast<MeshWifiInterfaceMac>(ifdevice->GetMac());
+            NS_ASSERT (ifmac != 0);
+            // Access channel number)
+            NS_LOG_UNCOND("the configured wifi standard from wifi MAC is " << ifmac->GetPhyStandard());
+
+            NS_LOG_UNCOND ("Old channel: " << ifmac->GetFrequencyChannel ());
+            // Change channel 
+            ifmac->SwitchFrequencyChannel (newChannelNumber);
+            NS_LOG_UNCOND ("New channel: " << ifmac->GetFrequencyChannel ());
+            wifiPhyPtr = ifdevice->GetPhy ();
+            NS_ASSERT(wifiPhyPtr != 0);
+            // access MAC
+            NS_LOG_UNCOND("the new configured channel number in phy is " << int(wifiPhyPtr->GetChannelNumber()));
+        }
+
+        NS_LOG_UNCOND ("average signal (dBm) " << g_signalDbmAvg << " average noise (dBm) " << g_noiseDbmAvg);
     }
 }
 void
@@ -404,6 +417,18 @@ MeshTest::InstallInternetStack ()
   Ipv4AddressHelper address;
   address.SetBase ("10.1.1.0", "255.255.255.0");
   interfaces = address.Assign (meshDevices);
+}
+void
+MeshTest::ConfigureWaveform ()
+{
+  Ptr<SpectrumValue> wgPsd = Create<SpectrumValue> (SpectrumModel2452MHz);
+  *wgPsd = waveformPower / 20e6;
+  waveformGeneratorHelper.SetChannel (spectrumChannel);
+  waveformGeneratorHelper.SetTxPowerSpectralDensity (wgPsd);
+  waveformGeneratorHelper.SetPhyAttribute ("Period", TimeValue (Seconds (0.0007)));
+  waveformGeneratorHelper.SetPhyAttribute ("DutyCycle", DoubleValue (1));
+  waveformGeneratorDevices = waveformGeneratorHelper.Install (interfNode);
+  NS_LOG_UNCOND("configuring waveform\n");
 }
 void
 MeshTest::InstallApplication ()
@@ -425,8 +450,16 @@ MeshTest::InstallApplication ()
 double
 MeshTest::CalculateThroughput ()
 {
+  //NS_LOG_UNCOND("total packets through before: " << totalPacketsThrough);
+  double packetsInInterval;
+  double currentTotalPackets;
+  currentTotalPackets = DynamicCast<UdpServer> (serverApps.Get (0))->GetReceived ();
+  //NS_LOG_UNCOND("current total packets " << currentTotalPackets);
+  packetsInInterval = currentTotalPackets - totalPacketsThrough;
+  //NS_LOG_UNCOND("packets in the interval " << packetsInInterval);
   totalPacketsThrough = DynamicCast<UdpServer> (serverApps.Get (0))->GetReceived ();
-  throughput = totalPacketsThrough * m_packetSize * 8 / (m_totalTime * 1000000.0); //Mbit/s
+  //NS_LOG_UNCOND("total packets through after: " << totalPacketsThrough);
+  throughput = packetsInInterval * m_packetSize * 8 / (m_totalTime * 1000000.0); //Mbit/s
   NS_LOG_UNCOND("\n throughput: " << throughput << "\n");
   return throughput;
 }
@@ -438,19 +471,61 @@ MeshTest::Run ()
   g_samples = 0;
   CreateNodes ();
   InstallInternetStack ();
+  ConfigureWaveform();
+
+//   for (int channel=1; channel<=13; channel++) {
+//       Simulator::Schedule(Seconds (0*channel), &MeshTest::GetSetChannelNumber, this, channel);
+//       Simulator::Schedule(Seconds (10*channel), &MeshTest::CalculateThroughput, this);
+//       Simulator::Schedule (Seconds (10*channel), &WaveformGenerator::Start,
+//         waveformGeneratorDevices.Get (0)->GetObject<NonCommunicatingNetDevice> ()->GetPhy ()->GetObject<WaveformGenerator> ());
+//       Simulator::Schedule(Seconds (20*channel), &MeshTest::CalculateThroughput, this);
+//       Simulator::Schedule (Seconds (20*channel), &WaveformGenerator::Stop,
+//         waveformGeneratorDevices.Get (0)->GetObject<NonCommunicatingNetDevice> ()->GetPhy ()->GetObject<WaveformGenerator> ());
+//   }
   Simulator::Schedule(Seconds (0), &MeshTest::GetSetChannelNumber, this, 1);
-  Simulator::Schedule(Seconds (5), &MeshTest::CalculateThroughput, this);
-  Simulator::Schedule(Seconds (5), &MeshTest::GetSetChannelNumber, this, 2);
   Simulator::Schedule(Seconds (10), &MeshTest::CalculateThroughput, this);
-  Simulator::Schedule(Seconds (10), &MeshTest::GetSetChannelNumber, this, 3);
-  Simulator::Schedule(Seconds (15), &MeshTest::CalculateThroughput, this);
-  Simulator::Schedule(Seconds (15), &MeshTest::GetSetChannelNumber, this, 4);
+  Simulator::Schedule (Seconds (10), &WaveformGenerator::Start,
+    waveformGeneratorDevices.Get (0)->GetObject<NonCommunicatingNetDevice> ()->GetPhy ()->GetObject<WaveformGenerator> ());
+  Simulator::Schedule(Seconds (20), &MeshTest::CalculateThroughput, this);
+  Simulator::Schedule (Seconds (20), &WaveformGenerator::Stop,
+    waveformGeneratorDevices.Get (0)->GetObject<NonCommunicatingNetDevice> ()->GetPhy ()->GetObject<WaveformGenerator> ());
+  
+  Simulator::Schedule(Seconds (20), &MeshTest::GetSetChannelNumber, this, 3);
+  Simulator::Schedule(Seconds (30), &MeshTest::CalculateThroughput, this);
+  Simulator::Schedule (Seconds (30), &WaveformGenerator::Start,
+    waveformGeneratorDevices.Get (0)->GetObject<NonCommunicatingNetDevice> ()->GetPhy ()->GetObject<WaveformGenerator> ());
+  Simulator::Schedule(Seconds (40), &MeshTest::CalculateThroughput, this);
+  Simulator::Schedule(Seconds (40), &WaveformGenerator::Stop, waveformGeneratorDevices.Get (0)->GetObject<NonCommunicatingNetDevice> ()->GetPhy ()->GetObject<WaveformGenerator> ());
+  
+  Simulator::Schedule(Seconds (40), &MeshTest::GetSetChannelNumber, this, 5);
+  Simulator::Schedule(Seconds (50), &MeshTest::CalculateThroughput, this);
+  Simulator::Schedule (Seconds (50), &WaveformGenerator::Start,
+    waveformGeneratorDevices.Get (0)->GetObject<NonCommunicatingNetDevice> ()->GetPhy ()->GetObject<WaveformGenerator> ());
+  Simulator::Schedule(Seconds (60), &MeshTest::CalculateThroughput, this);
+  Simulator::Schedule (Seconds (60), &WaveformGenerator::Stop,
+    waveformGeneratorDevices.Get (0)->GetObject<NonCommunicatingNetDevice> ()->GetPhy ()->GetObject<WaveformGenerator> ());
+
+  Simulator::Schedule(Seconds (60), &MeshTest::GetSetChannelNumber, this, 7);
+  Simulator::Schedule(Seconds (70), &MeshTest::CalculateThroughput, this);
+  Simulator::Schedule (Seconds (70), &WaveformGenerator::Start,
+    waveformGeneratorDevices.Get (0)->GetObject<NonCommunicatingNetDevice> ()->GetPhy ()->GetObject<WaveformGenerator> ());
+  Simulator::Schedule(Seconds (80), &MeshTest::CalculateThroughput, this);
+  Simulator::Schedule (Seconds (80), &WaveformGenerator::Stop,
+    waveformGeneratorDevices.Get (0)->GetObject<NonCommunicatingNetDevice> ()->GetPhy ()->GetObject<WaveformGenerator> ());
+
+  Simulator::Schedule(Seconds (80), &MeshTest::GetSetChannelNumber, this, 9);
+  Simulator::Schedule(Seconds (90), &MeshTest::CalculateThroughput, this);
+  Simulator::Schedule (Seconds (90), &WaveformGenerator::Start,
+    waveformGeneratorDevices.Get (0)->GetObject<NonCommunicatingNetDevice> ()->GetPhy ()->GetObject<WaveformGenerator> ());
+  Simulator::Schedule(Seconds (100), &MeshTest::CalculateThroughput, this);
+  Simulator::Schedule (Seconds (100), &WaveformGenerator::Stop,
+    waveformGeneratorDevices.Get (0)->GetObject<NonCommunicatingNetDevice> ()->GetPhy ()->GetObject<WaveformGenerator> ());
+
   InstallApplication ();
   Simulator::Schedule (Seconds (m_totalTime), &MeshTest::Report, this);
   Config::ConnectWithoutContext ("/NodeList/0/DeviceList/*/Phy/MonitorSnifferRx", MakeCallback (&MonitorSniffRx));
   Simulator::Stop (Seconds (m_totalTime));
   Simulator::Run ();
-  CalculateThroughput();
   NS_LOG_UNCOND ("average signal (dBm) " << g_signalDbmAvg << " average noise (dBm) " << g_noiseDbmAvg);
   Simulator::Destroy ();
   return 0;
