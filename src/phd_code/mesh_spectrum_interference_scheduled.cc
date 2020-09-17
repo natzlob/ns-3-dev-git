@@ -197,8 +197,8 @@ MeshTest::MeshTest () :
   m_ySize (3),
   m_step (50.0),
   m_randomStart (0.1),
-  m_totalTime (100.0),
-  m_packetInterval (0.1),
+  m_totalTime (50.0),
+  m_packetInterval (0.001),
   m_packetSize (1024),
   m_nIfaces (1),
   m_chan (true),
@@ -382,9 +382,9 @@ void MeshTest::GetSetChannelNumber (uint16_t newChannelNumber)
         NS_ASSERT (mp != 0);
         // loop over all interfaces
         std::vector<Ptr<NetDevice> > meshInterfaces = mp->GetInterfaces ();
-
-        NS_LOG_UNCOND ("average signal (dBm) " << g_signalDbmAvg << " average noise (dBm) " << g_noiseDbmAvg);
     }
+
+    NS_LOG_UNCOND ("average signal (dBm) " << g_signalDbmAvg << " average noise (dBm) " << g_noiseDbmAvg);
 }
 void
 MeshTest::InstallInternetStack ()
@@ -412,15 +412,16 @@ MeshTest::InstallApplication ()
 {
   //UdpEchoServerHelper echoServer (9);
   UdpServerHelper echoServer (9);
-  serverApps = echoServer.Install (nodes.Get (0));
+  serverApps = echoServer.Install (nodes.Get (7));
+  NS_LOG_UNCOND("number of server apps in container = " << int(serverApps.GetN()));
   serverApps.Start (Seconds (0.0));
-  serverApps.Stop (Seconds (m_totalTime));
+  serverApps.Stop (Seconds (m_totalTime+1));
   //UdpEchoClientHelper echoClient (interfaces.GetAddress (0), 9);
   UdpClientHelper echoClient (interfaces.GetAddress (0), 9);
   echoClient.SetAttribute ("MaxPackets", UintegerValue ((uint32_t)(m_totalTime*(1/m_packetInterval))));
   echoClient.SetAttribute ("Interval", TimeValue (Seconds (m_packetInterval)));
   echoClient.SetAttribute ("PacketSize", UintegerValue (m_packetSize));
-  ApplicationContainer clientApps = echoClient.Install (nodes.Get (m_xSize*m_ySize-1));
+  ApplicationContainer clientApps = echoClient.Install (nodes.Get (8));
   clientApps.Start (Seconds (0.0));
   clientApps.Stop (Seconds (m_totalTime));
 }
@@ -434,9 +435,9 @@ MeshTest::CalculateThroughput ()
   NS_LOG_UNCOND("current total packets " << currentTotalPackets);
   packetsInInterval = currentTotalPackets - totalPacketsThrough;
   NS_LOG_UNCOND("packets in the interval " << packetsInInterval);
-  totalPacketsThrough = DynamicCast<UdpServer> (serverApps.Get (0))->GetReceived ();
+  totalPacketsThrough = currentTotalPackets;
   //NS_LOG_UNCOND("total packets through after: " << totalPacketsThrough);
-  throughput = packetsInInterval * m_packetSize * 8 / (m_totalTime * 1000000.0); //Mbit/s
+  throughput = packetsInInterval * m_packetSize * 8 / (10 * 1000000.0); //Mbit/s
   NS_LOG_UNCOND("\n throughput: " << throughput << "\n");
   return throughput;
 }
@@ -450,7 +451,7 @@ MeshTest::Run ()
   InstallInternetStack ();
   ConfigureWaveform();
 
-  for (int i=1; i<=10; i++) {
+  for (int i=1; i<=5; i++) {
       Simulator::Schedule(Seconds (i*10), &MeshTest::CalculateThroughput, this);
       Simulator::Schedule(Seconds (i*10), &MeshTest::GetSetChannelNumber, this, 1);
   }
@@ -459,8 +460,10 @@ MeshTest::Run ()
   //Simulator::Schedule(Seconds (5), &MeshTest::GetSetChannelNumber, this, 2);
   //Simulator::Schedule(Seconds (20), &MeshTest::CalculateThroughput, this);
   //Simulator::Schedule(Seconds (10), &MeshTest::GetSetChannelNumber, this, 3);
-  Simulator::Schedule (Seconds (50), &WaveformGenerator::Start,
-    waveformGeneratorDevices.Get (0)->GetObject<NonCommunicatingNetDevice> ()->GetPhy ()->GetObject<WaveformGenerator> ());
+
+  // Simulator::Schedule (Seconds (50), &WaveformGenerator::Start,
+  //   waveformGeneratorDevices.Get (0)->GetObject<NonCommunicatingNetDevice> ()->GetPhy ()->GetObject<WaveformGenerator> ());
+  
   //Simulator::Schedule(Seconds (30), &MeshTest::CalculateThroughput, this);
   //Simulator::Schedule(Seconds (15), &MeshTest::GetSetChannelNumber, this, 4);
   //Simulator::Schedule(Seconds (40), &MeshTest::CalculateThroughput, this);
@@ -482,7 +485,7 @@ MeshTest::Report ()
     {
       std::ostringstream os;
       os << "mp-report-" << n << ".xml";
-      std::cerr << "Printing mesh point device #" << n << " diagnostics to " << os.str () << "\n";
+      //std::cerr << "Printing mesh point device #" << n << " diagnostics to " << os.str () << "\n";
       std::ofstream of;
       of.open (os.str ().c_str ());
       if (!of.is_open ())
