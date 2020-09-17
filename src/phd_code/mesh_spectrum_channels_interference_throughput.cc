@@ -64,6 +64,7 @@
 #include "ns3/waveform-generator.h"
 #include "ns3/waveform-generator-helper.h"
 #include "ns3/non-communicating-net-device.h"
+#include "ns3/random-variable-stream.h"
 
 using namespace ns3;
 
@@ -159,6 +160,9 @@ private:
   std::string m_stack; ///< stack
   std::string m_root; ///< root
   /// List of network nodes
+  double packetsInInterval=0;
+  double currentTotalPackets=0;
+
   NodeContainer nodes;
   /// List of all mesh point devices
   NodeContainer interfNode;
@@ -193,24 +197,24 @@ private:
   /// Configure waveform generator for interfering node
   void InstallApplication ();
   /// Calculate throughput
-  double CalculateThroughput (int channelNum, std::unordered_map<int, double> &throughputMap);
+  void CalculateThroughput (int channelNum, std::unordered_map<int, double> &throughputMap);
   /// Print mesh devices diagnostics
   void Report ();
 };
 MeshTest::MeshTest () :
-  m_xSize (5),
-  m_ySize (5),
-  m_step (50.0),
+  m_xSize (3),
+  m_ySize (3),
+  m_step (100.0),
   m_randomStart (0.1),
   m_totalTime (150.0),
-  m_packetInterval (0.1),
+  m_packetInterval (0.001),
   m_packetSize (1024),
-  m_nIfaces (1),
+  m_nIfaces (2),
   m_chan (true),
   m_pcap (false),
   m_ascii (true),
   rss (-50),
-  waveformPower (0.2),
+  waveformPower (0.0),
   throughput (0),
   totalPacketsThrough (0),
   m_stack ("ns3::Dot11sStack"),
@@ -438,36 +442,62 @@ MeshTest::InstallApplication ()
 {
   //UdpEchoServerHelper echoServer (9);
   UdpServerHelper echoServer (9);
-  serverApps = echoServer.Install (nodes.Get (0));
-  serverApps.Start (Seconds (0.0));
+  //UdpClientHelper echoClient;
+
+  //for (int i=0; i<m_xSize*m_ySize; i++) {
+  serverApps.Add(echoServer.Install (nodes));
+    //echoClient (interfaces.GetAddress (i), 9);
+  //}
+  NS_LOG_UNCOND("number of server apps in container = " << int(serverApps.GetN()));
+  //serverApps = echoServer.Install (nodes.Get (server));
+  Ptr<UniformRandomVariable> rvStream = CreateObject<UniformRandomVariable> ();
+  rvStream->SetAttribute ("Min", DoubleValue (0.0));
+  rvStream->SetAttribute ("Max", DoubleValue(1.0));
+
+  serverApps.Start (Seconds (0.0));                                          
   serverApps.Stop (Seconds (m_totalTime));
-  //UdpEchoClientHelper echoClient (interfaces.GetAddress (0), 9);
   UdpClientHelper echoClient (interfaces.GetAddress (0), 9);
+  
   echoClient.SetAttribute ("MaxPackets", UintegerValue ((uint32_t)(m_totalTime*(1/m_packetInterval))));
   echoClient.SetAttribute ("Interval", TimeValue (Seconds (m_packetInterval)));
   echoClient.SetAttribute ("PacketSize", UintegerValue (m_packetSize));
-  ApplicationContainer clientApps = echoClient.Install (nodes.Get (m_xSize*m_ySize-1));
-  clientApps.Start (Seconds (0.0));
+  ApplicationContainer clientApps;
+  clientApps.Add(echoClient.Install (nodes));
+  NS_LOG_UNCOND("number of client apps in container = " << int(clientApps.GetN()));
+  //clientApps = echoClient.Install (nodes.Get (client));
+  clientApps.StartWithJitter (Seconds (0.0), rvStream);
   clientApps.Stop (Seconds (m_totalTime));
 }
-double
+void
 MeshTest::CalculateThroughput (int channelNum, std::unordered_map<int, double> &throughputMap)
 {
   //NS_LOG_UNCOND("total packets through before: " << totalPacketsThrough);
-  double packetsInInterval;
-  double currentTotalPackets;
-  currentTotalPackets = DynamicCast<UdpServer> (serverApps.Get (0))->GetReceived ();
-  //NS_LOG_UNCOND("current total packets " << currentTotalPackets);
-  packetsInInterval = currentTotalPackets - totalPacketsThrough;
-  //NS_LOG_UNCOND("packets in the interval " << packetsInInterval);
-  totalPacketsThrough = DynamicCast<UdpServer> (serverApps.Get (0))->GetReceived ();
-  //NS_LOG_UNCOND("total packets through after: " << totalPacketsThrough);
-  channelThroughputMap[channelNum] = throughput;
-  throughput = packetsInInterval * m_packetSize * 8 / (10 * 1000000.0); //10s interval, Mbit/s
-  //NS_LOG_UNCOND("\n throughput: " << channelThroughputMap[channelNum] << "\n");
-  NS_LOG_UNCOND ("average signal (dBm) " << g_signalDbmAvg << " average noise (dBm) " << g_noiseDbmAvg);
 
-  return throughput;
+  for (int serverapp=0; serverapp < m_ySize*m_xSize; serverapp++) {
+    int totalperServer = DynamicCast<UdpServer> (serverApps.Get (serverapp))->GetReceived ();
+    NS_LOG_UNCOND("total per server app " << serverapp << " = " << totalperServer);
+    currentTotalPackets += DynamicCast<UdpServer> (serverApps.Get (serverapp))->GetReceived ();
+    NS_LOG_UNCOND("current total packets " << currentTotalPackets);
+  }
+  packetsInInterval = currentTotalPackets - totalPacketsThrough;
+  totalPacketsThrough = currentTotalPackets;
+  NS_LOG_UNCOND("packets in the interval " << packetsInInterval);
+  throughput = packetsInInterval * m_packetSize * 8 / (10 * 1000000.0); //10s interval, Mbit/s
+  channelThroughputMap[channelNum] = throughput;
+  NS_LOG_UNCOND("\n throughput: " << channelThroughputMap[channelNum] << "\n");
+  //NS_LOG_UNCOND ("average signal (dBm) " << g_signalDbmAvg << " average noise (dBm) " << g_noiseDbmAvg);
+  // currentTotalPackets = DynamicCast<UdpServer> (serverApps.Get (0))->GetReceived ();
+  // //NS_LOG_UNCOND("current total packets " << currentTotalPackets);
+  // packetsInInterval = currentTotalPackets - totalPacketsThrough;
+  // //NS_LOG_UNCOND("packets in the interval " << packetsInInterval);
+  // totalPacketsThrough = DynamicCast<UdpServer> (serverApps.Get (0))->GetReceived ();
+  // //NS_LOG_UNCOND("total packets through after: " << totalPacketsThrough);
+  // channelThroughputMap[channelNum] = throughput;
+  // throughput = packetsInInterval * m_packetSize * 8 / (10 * 1000000.0); //10s interval, Mbit/s
+  // //NS_LOG_UNCOND("\n throughput: " << channelThroughputMap[channelNum] << "\n");
+  // NS_LOG_UNCOND ("average signal (dBm) " << g_signalDbmAvg << " average noise (dBm) " << g_noiseDbmAvg);
+
+  //return throughput;
 }
 int
 MeshTest::Run ()
@@ -486,6 +516,15 @@ MeshTest::Run ()
       Simulator::Schedule(Seconds (10*channel), &MeshTest::CalculateThroughput, this, channel, channelThroughputMap);
   }
 
+  // for (int i=0; i < m_xSize; i++)
+  // {
+  //   for (int j=0; j < m_ySize; j++)
+  //   {
+  //     if (i != j) {
+  //       InstallApplication (i,j);
+  //     }
+  //   }
+  // }
   InstallApplication ();
   Simulator::Schedule (Seconds (m_totalTime), &MeshTest::Report, this);
   Config::ConnectWithoutContext ("/NodeList/0/DeviceList/*/Phy/MonitorSnifferRx", MakeCallback (&MonitorSniffRx));
