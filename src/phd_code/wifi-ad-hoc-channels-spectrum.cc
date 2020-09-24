@@ -88,11 +88,11 @@ int main (int argc, char *argv[])
     std::setw (9) << "SNR (dB)" <<
     std::endl;
 
-    for (uint16_t i = 1; i <= 25; i++)
+    for (uint16_t i = 1; i <= 10; i++)
     {
         rss -= 1;
         NodeContainer adhocNodes;
-        adhocNodes.Create(2);
+        adhocNodes.Create(3);
 
         YansWifiPhyHelper nodePhy = YansWifiPhyHelper::Default ();
         SpectrumWifiPhyHelper spectrumPhy = SpectrumWifiPhyHelper::Default ();
@@ -154,9 +154,9 @@ int main (int argc, char *argv[])
 
         UdpClientHelper client (interf.GetAddress (0), port);
         client.SetAttribute ("MaxPackets", UintegerValue (4294967295u));
-        client.SetAttribute ("Interval", TimeValue (Time ("0.0001"))); //packets/s
+        client.SetAttribute ("Interval", TimeValue (Time ("0.01"))); //packets/s
         client.SetAttribute ("PacketSize", UintegerValue (payloadSize));
-        ApplicationContainer clientApp = client.Install (adhocNodes.Get (1));
+        ApplicationContainer clientApp = client.Install (adhocNodes.Get (2));
         clientApp.Start (Seconds (1.0));
         clientApp.Stop (Seconds (simulationTime + 1));
 

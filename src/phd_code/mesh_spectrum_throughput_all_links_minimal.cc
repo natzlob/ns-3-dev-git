@@ -112,9 +112,9 @@ MeshTest::MeshTest () :
   m_step (50.0),
   m_randomStart (0.1),
   m_totalTime (50.0),
-  m_packetInterval (0.01),
+  m_packetInterval (0.1),
   m_packetSize (1024),
-  m_nIfaces (1),
+  m_nIfaces (2),
   m_chan (true),
   m_pcap (false),
   m_ascii (true),
@@ -202,32 +202,31 @@ void
 MeshTest::InstallApplication ()
 {
   UdpServerHelper echoServer (9);
-  serverApps = echoServer.Install (nodes.Get (0));
-  ApplicationContainer clientApps = echoClient.Install (nodes.Get (0));
-  for (int row=1; row<m_xSize; row++) {
-    for (int col=1; col<m_ySize; col++) {
-      NS_LOG_UNCOND("Adding echoServer of node " << row << " to serverApps");
-      serverApps.Add(echoServer.Install (nodes.Get (row)));
-      NS_LOG_UNCOND("generating new echoClient to server " << row);
-      UdpClientHelper echoClient (interfaces.GetAddress (row), 9);
+  ApplicationContainer clientApps;
+  serverApps = echoServer.Install (nodes);
+  NS_LOG_UNCOND("number of server apps in container = " << int(serverApps.GetN()));
+  //UdpClientHelper echoClient (interfaces.GetAddress (row), 9);
+
+  for (int node=0; node<m_xSize*m_ySize; node++) {
+      NS_LOG_UNCOND("generating new echoClient to server " << node);
+      UdpClientHelper echoClient (interfaces.GetAddress (node), 9);
       echoClient.SetAttribute ("MaxPackets", UintegerValue ((uint32_t)(m_totalTime*(1/m_packetInterval))));
       echoClient.SetAttribute ("Interval", TimeValue (Seconds (m_packetInterval)));
       echoClient.SetAttribute ("PacketSize", UintegerValue (m_packetSize));
-      clientApps.Add(echoClient.Install (nodes.Get(col)));
-    } 
+      clientApps.Add(echoClient.Install(nodes));
   }
-  
-  NS_LOG_UNCOND("number of server apps in container = " << int(serverApps.GetN()));
-  NS_LOG_UNCOND("number of client apps in container = " << int(clientApps.GetN()));
+  //clientApps.Add(echoClient.Install (nodes));
 
   serverApps.Start (Seconds (0.0));
   serverApps.Stop (Seconds (m_totalTime+1));
 
-  // UdpClientHelper echoClient (interfaces.GetAddress (1), 9);
+  // UdpClientHelper echoClient (interfaces.GetAddress (0), 9);
   // echoClient.SetAttribute ("MaxPackets", UintegerValue ((uint32_t)(m_totalTime*(1/m_packetInterval))));
   // echoClient.SetAttribute ("Interval", TimeValue (Seconds (m_packetInterval)));
   // echoClient.SetAttribute ("PacketSize", UintegerValue (m_packetSize));
-  // ApplicationContainer clientApps = echoClient.Install (nodes.Get (0));
+  // clientApps = echoClient.Install (nodes);
+  NS_LOG_UNCOND("number of client apps in container = " << int(clientApps.GetN()));
+  
   clientApps.Start (Seconds (0.0));
   clientApps.Stop (Seconds (m_totalTime));
 }
@@ -238,6 +237,10 @@ MeshTest::CalculateThroughput ()
   double packetsInInterval;
   double currentTotalPackets;
   currentTotalPackets = DynamicCast<UdpServer> (serverApps.Get (0))->GetReceived ();
+  for (int node=1; node<m_ySize*m_xSize; node++) {
+      currentTotalPackets += DynamicCast<UdpServer> (serverApps.Get (node))->GetReceived ();
+  }
+
   NS_LOG_UNCOND("current total packets " << currentTotalPackets);
   packetsInInterval = currentTotalPackets - totalPacketsThrough;
   NS_LOG_UNCOND("packets in the interval " << packetsInInterval);
