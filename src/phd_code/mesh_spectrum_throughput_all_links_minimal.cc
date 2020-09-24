@@ -213,7 +213,7 @@ MeshTest::InstallApplication ()
       echoClient.SetAttribute ("MaxPackets", UintegerValue ((uint32_t)(m_totalTime*(1/m_packetInterval))));
       echoClient.SetAttribute ("Interval", TimeValue (Seconds (m_packetInterval)));
       echoClient.SetAttribute ("PacketSize", UintegerValue (m_packetSize));
-      clientApps.Add(echoClient.Install(nodes));
+      clientApps.Add(echoClient.Install(nodes.Get(node)));
   }
   //clientApps.Add(echoClient.Install (nodes));
 
