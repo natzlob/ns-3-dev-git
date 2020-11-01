@@ -89,23 +89,23 @@ std::unordered_map<int, double> channelGainMap = {
 
 NS_LOG_COMPONENT_DEFINE ("TestMeshSpectrumChannelsScript");
 
-Ptr<SpectrumModel> SpectrumModel2417MHz;
+Ptr<SpectrumModel> SpectrumModel2452MHz;
 
-class static_SpectrumModel2417MHz_initializer
+class static_SpectrumModel2452MHz_initializer
 {
 public:
-    static_SpectrumModel2417MHz_initializer ()
+    static_SpectrumModel2452MHz_initializer ()
     {
         BandInfo bandInfo;
-        bandInfo.fc = 2417e6;
-        bandInfo.fl = 2417e6 - 10e6;
-        bandInfo.fh = 2417e6 + 10e6;
+        bandInfo.fc = 2452e6;
+        bandInfo.fl = 2452e6 - 10e6;
+        bandInfo.fh = 2452e6 + 10e6;
         Bands bands;
         bands.push_back (bandInfo);
 
-        SpectrumModel2417MHz = Create<SpectrumModel> (bands);
+        SpectrumModel2452MHz = Create<SpectrumModel> (bands);
     }
-} static_SpectrumModel2417MHz_initializer_inst;
+} static_SpectrumModel2452MHz_initializer_inst;
 
 /**
  * \ingroup mesh
@@ -195,9 +195,9 @@ private:
 MeshTest::MeshTest () :
   m_xSize (3),
   m_ySize (3),
-  m_step (50.0),
+  m_step (150.0),
   m_randomStart (0.1),
-  m_totalTime (50.0),
+  m_totalTime (150.0),
   m_packetInterval (0.001),
   m_packetSize (1024),
   m_nIfaces (1),
@@ -246,11 +246,11 @@ void MeshTest::PrepareChannels ()
 
   Ptr<FriisPropagationLossModel> friisModel
     = CreateObject<FriisPropagationLossModel> ();
-  friisModel->SetFrequency (2.417e9);
+  friisModel->SetFrequency (2.452e9);
 
   Ptr<Cost231PropagationLossModel> costModel
     = CreateObject<Cost231PropagationLossModel> ();
-  costModel->SetAttribute ("Frequency", DoubleValue(2.417e9));
+  costModel->SetAttribute ("Frequency", DoubleValue(2.452e9));
 
   Ptr<FixedRssLossModel> fixedLoss1
     =  CreateObject<FixedRssLossModel> ();
@@ -282,7 +282,7 @@ MeshTest::CreateNodes ()
   spectrumChannel = CreateObject<MultiModelSpectrumChannel> ();
   Ptr<FriisPropagationLossModel> lossModel
     = CreateObject<FriisPropagationLossModel> ();
-  lossModel->SetFrequency (2.417e9);
+  lossModel->SetFrequency (2.452e9);
   spectrumChannel->AddPropagationLossModel (lossModel);
 
   Ptr<ConstantSpeedPropagationDelayModel> delayModel
@@ -291,7 +291,7 @@ MeshTest::CreateNodes ()
 
   spectrumPhy.SetChannel (spectrumChannel);
   spectrumPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
-  spectrumPhy.Set ("Frequency", UintegerValue(2417));
+  spectrumPhy.Set ("Frequency", UintegerValue(2452));
   /*
    * Create mesh helper and set stack installer to it
    * Stack installer creates all needed protocols and install them to
@@ -381,10 +381,35 @@ void MeshTest::GetSetChannelNumber (uint16_t newChannelNumber)
         Ptr<MeshPointDevice> mp = DynamicCast<MeshPointDevice>(*i);
         NS_ASSERT (mp != 0);
         // loop over all interfaces
+        Ptr<MeshL2RoutingProtocol> meshProtocol = mp->GetRoutingProtocol()
+        NS_LOG_UNCOND("the routing protocol is " << meshProtocol);
         std::vector<Ptr<NetDevice> > meshInterfaces = mp->GetInterfaces ();
-    }
 
-    NS_LOG_UNCOND ("average signal (dBm) " << g_signalDbmAvg << " average noise (dBm) " << g_noiseDbmAvg);
+        for (std::vector<Ptr<NetDevice> >::iterator j = meshInterfaces.begin(); j != meshInterfaces.end(); ++j)
+        {
+            Ptr<WifiNetDevice> ifdevice = DynamicCast<WifiNetDevice>(*j);
+            //access the WifiPhy ptr
+            Ptr<WifiPhy> wifiPhyPtr = ifdevice->GetPhy ();
+            NS_ASSERT(wifiPhyPtr != 0);
+            // access MAC
+            //NS_LOG_UNCOND("the configured channel number in phy is " << int(wifiPhyPtr->GetChannelNumber()));
+            Ptr<MeshWifiInterfaceMac> ifmac = DynamicCast<MeshWifiInterfaceMac>(ifdevice->GetMac());
+            NS_ASSERT (ifmac != 0);
+
+            if (!wifiPhyPtr->IsStateCcaBusy()) {
+            //NS_LOG_UNCOND ("Old channel: " << ifmac->GetFrequencyChannel ());
+            // Change channel 
+              ifmac->SwitchFrequencyChannel (newChannelNumber);
+              NS_LOG_UNCOND ("New channel: " << ifmac->GetFrequencyChannel ());
+              // access MAC
+            }
+            // else {
+            //   Time delayToIdle = wifiPhyPtr->GetDelayUntilIdle();
+            //   Simulator::Schedule(delayToIdle, &SwitchFrequencyChannel, this, newChannelNumber)
+            // }
+        }
+    }
+  NS_LOG_UNCOND ("average signal (dBm) " << g_signalDbmAvg << " average noise (dBm) " << g_noiseDbmAvg);
 }
 void
 MeshTest::InstallInternetStack ()
@@ -398,7 +423,7 @@ MeshTest::InstallInternetStack ()
 void
 MeshTest::ConfigureWaveform ()
 {
-  Ptr<SpectrumValue> wgPsd = Create<SpectrumValue> (SpectrumModel2417MHz);
+  Ptr<SpectrumValue> wgPsd = Create<SpectrumValue> (SpectrumModel2452MHz);
   *wgPsd = waveformPower / 20e6;
   waveformGeneratorHelper.SetChannel (spectrumChannel);
   waveformGeneratorHelper.SetTxPowerSpectralDensity (wgPsd);
@@ -412,7 +437,7 @@ MeshTest::InstallApplication ()
 {
   //UdpEchoServerHelper echoServer (9);
   UdpServerHelper echoServer (9);
-  serverApps = echoServer.Install (nodes.Get (7));
+  serverApps = echoServer.Install (nodes.Get (0));
   NS_LOG_UNCOND("number of server apps in container = " << int(serverApps.GetN()));
   serverApps.Start (Seconds (0.0));
   serverApps.Stop (Seconds (m_totalTime+1));
@@ -421,7 +446,7 @@ MeshTest::InstallApplication ()
   echoClient.SetAttribute ("MaxPackets", UintegerValue ((uint32_t)(m_totalTime*(1/m_packetInterval))));
   echoClient.SetAttribute ("Interval", TimeValue (Seconds (m_packetInterval)));
   echoClient.SetAttribute ("PacketSize", UintegerValue (m_packetSize));
-  ApplicationContainer clientApps = echoClient.Install (nodes.Get (8));
+  ApplicationContainer clientApps = echoClient.Install (nodes.Get (1));
   clientApps.Start (Seconds (0.0));
   clientApps.Stop (Seconds (m_totalTime));
 }
@@ -451,9 +476,9 @@ MeshTest::Run ()
   InstallInternetStack ();
   ConfigureWaveform();
 
-  for (int i=1; i<=5; i++) {
-      Simulator::Schedule(Seconds (i*10), &MeshTest::CalculateThroughput, this);
-      Simulator::Schedule(Seconds (i*10), &MeshTest::GetSetChannelNumber, this, 1);
+  for (int channel=1; channel<=13; channel++) {
+      Simulator::Schedule(Seconds (10*channel-10), &MeshTest::GetSetChannelNumber, this, channel);
+      Simulator::Schedule(Seconds (10*channel), &MeshTest::CalculateThroughput, this);
   }
   //Simulator::Schedule(Seconds (0), &MeshTest::GetSetChannelNumber, this, 1);
   //Simulator::Schedule(Seconds (10), &MeshTest::CalculateThroughput, this);
@@ -461,8 +486,8 @@ MeshTest::Run ()
   //Simulator::Schedule(Seconds (20), &MeshTest::CalculateThroughput, this);
   //Simulator::Schedule(Seconds (10), &MeshTest::GetSetChannelNumber, this, 3);
 
-  // Simulator::Schedule (Seconds (50), &WaveformGenerator::Start,
-  //   waveformGeneratorDevices.Get (0)->GetObject<NonCommunicatingNetDevice> ()->GetPhy ()->GetObject<WaveformGenerator> ());
+  Simulator::Schedule (Seconds (0), &WaveformGenerator::Start,
+    waveformGeneratorDevices.Get (0)->GetObject<NonCommunicatingNetDevice> ()->GetPhy ()->GetObject<WaveformGenerator> ());
   
   //Simulator::Schedule(Seconds (30), &MeshTest::CalculateThroughput, this);
   //Simulator::Schedule(Seconds (15), &MeshTest::GetSetChannelNumber, this, 4);
