@@ -143,19 +143,19 @@ private:
   void Report ();
 };
 MeshTest::MeshTest () :
-  m_xSize (3),
-  m_ySize (3),
+  m_xSize (5),
+  m_ySize (5),
   m_step (50.0),
   m_randomStart (0.1),
   m_totalTime (150.0),
-  m_packetInterval (0.01),
+  m_packetInterval (0.001),
   m_packetSize (1024),
-  m_nIfaces (2),
+  m_nIfaces (1),
   m_chan (true),
   m_pcap (false),
   m_ascii (true),
   rss (-50),
-  waveformPower (0.2),
+  waveformPower (0.1),
   throughput (0),
   totalPacketsThrough (0),
   m_stack ("ns3::Dot11sStack"),
@@ -242,13 +242,22 @@ MeshTest::InstallApplication ()
   serverApps = echoServer.Install (nodes);
   NS_LOG_UNCOND("number of server apps in container = " << int(serverApps.GetN()));
 
-  for (int node=0; node<m_xSize*m_ySize; node++) {
+  for (int serverNode=0; serverNode<m_xSize*m_ySize; serverNode++) {
       //NS_LOG_UNCOND("generating new echoClient to server " << node);
-      UdpClientHelper echoClient (interfaces.GetAddress (node), 9);
-      echoClient.SetAttribute ("MaxPackets", UintegerValue ((uint32_t)(m_totalTime*(1/m_packetInterval))));
-      echoClient.SetAttribute ("Interval", TimeValue (Seconds (m_packetInterval)));
-      echoClient.SetAttribute ("PacketSize", UintegerValue (m_packetSize));
-      clientApps.Add(echoClient.Install(nodes.Get(node)));
+      for (int clientNode=0; clientNode<m_xSize*m_ySize; clientNode++) {
+        if (clientNode != serverNode) {
+          UdpClientHelper echoClient (interfaces.GetAddress (serverNode), 9);
+          echoClient.SetAttribute ("MaxPackets", UintegerValue ((uint32_t)(m_totalTime*(1/m_packetInterval))));
+          echoClient.SetAttribute ("Interval", TimeValue (Seconds (m_packetInterval)));
+          echoClient.SetAttribute ("PacketSize", UintegerValue (m_packetSize));
+          clientApps.Add(echoClient.Install(nodes.Get(clientNode)));
+        }
+      }
+      // UdpClientHelper echoClient (interfaces.GetAddress (serverNode), 9);
+      // echoClient.SetAttribute ("MaxPackets", UintegerValue ((uint32_t)(m_totalTime*(1/m_packetInterval))));
+      // echoClient.SetAttribute ("Interval", TimeValue (Seconds (m_packetInterval)));
+      // echoClient.SetAttribute ("PacketSize", UintegerValue (m_packetSize));
+      // clientApps.Add(echoClient.Install(nodes.Get(node)));
   }
 
   serverApps.Start (Seconds (0.0));
@@ -309,9 +318,9 @@ MeshTest::CalculateThroughput (int channelNum, std::unordered_map<int, double> &
   NS_LOG_UNCOND("total packets through before: " << totalPacketsThrough);
   
   currentTotalPackets = DynamicCast<UdpServer> (serverApps.Get (0))->GetReceived ();
-  // for (int node=1; node<m_ySize*m_xSize; node++) {
-  //     currentTotalPackets += DynamicCast<UdpServer> (serverApps.Get (node))->GetReceived ();
-  // }
+  for (int node=1; node<m_ySize*m_xSize; node++) {
+      currentTotalPackets += DynamicCast<UdpServer> (serverApps.Get (node))->GetReceived ();
+  }
 
   NS_LOG_UNCOND("current total packets " << currentTotalPackets);
   packetsInInterval = currentTotalPackets - totalPacketsThrough;
@@ -343,6 +352,10 @@ MeshTest::Run ()
 
   InstallApplication ();
   Config::ConnectWithoutContext ("/NodeList/0/DeviceList/*/Phy/MonitorSnifferRx", MakeCallback (&MonitorSniffRx));
+  Config::ConnectWithoutContext ("/NodeList/1/DeviceList/*/Phy/MonitorSnifferRx", MakeCallback (&MonitorSniffRx));
+  Config::ConnectWithoutContext ("/NodeList/2/DeviceList/*/Phy/MonitorSnifferRx", MakeCallback (&MonitorSniffRx));
+  Config::ConnectWithoutContext ("/NodeList/3/DeviceList/*/Phy/MonitorSnifferRx", MakeCallback (&MonitorSniffRx));
+  Config::ConnectWithoutContext ("/NodeList/4/DeviceList/*/Phy/MonitorSnifferRx", MakeCallback (&MonitorSniffRx));
   Simulator::Stop (Seconds (m_totalTime));
   Simulator::Run ();
 
