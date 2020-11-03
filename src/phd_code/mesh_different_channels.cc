@@ -84,7 +84,7 @@ public:
    */
   int Run ();
    /// Get current channel number and set to new channel
-  void GetSetChannelNumber (uint16_t newChannelNumber);
+  void GetSetChannelNumber (uint16_t newChannelNumber, uint8_t serverNode, uint8_t clientNode);
 private:
   int       m_xSize; ///< X size
   int       m_ySize; ///< Y size
@@ -124,6 +124,7 @@ private:
   Ptr<MultiModelSpectrumChannel> spectrumChannel;
   ///ApplicationContainer for throughput measurement
   ApplicationContainer serverApps;
+  ApplicationContainer clientApps;
   /// Helper for waveform generator
   WaveformGeneratorHelper waveformGeneratorHelper;
   /// container for waveform generator devices
@@ -134,21 +135,22 @@ private:
   /// Install internet m_stack on nodes
   void InstallInternetStack ();
   /// Install applications
-  void InstallApplication ();
+  void InstallServerApplication ();
+  void InstallClientApplication (int serverNode, int clientNode);
   /// Configure waveform generator for interfering node
   void ConfigureWaveform ();
   /// Calculate throughput
-  double CalculateThroughput (int channelNum, std::unordered_map<int, double> &throughputMap);
+  double CalculateThroughput (int channelNum, int node, std::unordered_map<int, double> &throughputMap);
   /// Print mesh devices diagnostics
   void Report ();
 };
 MeshTest::MeshTest () :
-  m_xSize (10),
-  m_ySize (10),
+  m_xSize (3),
+  m_ySize (3),
   m_step (50.0),
   m_randomStart (0.1),
-  m_totalTime (150.0),
-  m_packetInterval (0.001),
+  m_totalTime (100.0),
+  m_packetInterval (0.01),
   m_packetSize (1024),
   m_nIfaces (1),
   m_chan (true),
@@ -235,70 +237,103 @@ MeshTest::InstallInternetStack ()
   interfaces = address.Assign (meshDevices);
 }
 void
-MeshTest::InstallApplication ()
+MeshTest::InstallServerApplication ()
 {
   UdpServerHelper echoServer (9);
-  ApplicationContainer clientApps;
   serverApps = echoServer.Install (nodes);
+  // serverApps = echoServer.Install (nodes.Get(5));
+  // serverApps.Add(echoServer.Install(nodes.Get(3)));
+  // serverApps.Add(echoServer.Install(nodes.Get(6)));
   NS_LOG_UNCOND("number of server apps in container = " << int(serverApps.GetN()));
-
-  for (int serverNode=0; serverNode<m_xSize*m_ySize; serverNode++) {
-      //NS_LOG_UNCOND("generating new echoClient to server " << node);
-      for (int clientNode=0; clientNode<m_xSize*m_ySize; clientNode++) {
-        if (clientNode != serverNode) {
-          UdpClientHelper echoClient (interfaces.GetAddress (serverNode), 9);
-          echoClient.SetAttribute ("MaxPackets", UintegerValue ((uint32_t)(m_totalTime*(1/m_packetInterval))));
-          echoClient.SetAttribute ("Interval", TimeValue (Seconds (m_packetInterval)));
-          echoClient.SetAttribute ("PacketSize", UintegerValue (m_packetSize));
-          clientApps.Add(echoClient.Install(nodes.Get(clientNode)));
-        }
-      }
-      // UdpClientHelper echoClient (interfaces.GetAddress (serverNode), 9);
-      // echoClient.SetAttribute ("MaxPackets", UintegerValue ((uint32_t)(m_totalTime*(1/m_packetInterval))));
-      // echoClient.SetAttribute ("Interval", TimeValue (Seconds (m_packetInterval)));
-      // echoClient.SetAttribute ("PacketSize", UintegerValue (m_packetSize));
-      // clientApps.Add(echoClient.Install(nodes.Get(node)));
-  }
 
   serverApps.Start (Seconds (0.0));
   serverApps.Stop (Seconds (m_totalTime));
+}
+void
+MeshTest::InstallClientApplication (int serverNode, int clientNode)
+{
+  // Create specific artificial server/client pairs: 
+  // 0 - 5, 3 - 7, 6 - 8
+  UdpClientHelper echoClient (interfaces.GetAddress (serverNode), 9);
+  echoClient.SetAttribute ("MaxPackets", UintegerValue ((uint32_t)(m_totalTime*(1/m_packetInterval))));
+  echoClient.SetAttribute ("Interval", TimeValue (Seconds (m_packetInterval)));
+  echoClient.SetAttribute ("PacketSize", UintegerValue (m_packetSize));
+  clientApps.Add(echoClient.Install(nodes.Get(clientNode)));
+
+  // UdpClientHelper echoClient1 (interfaces.GetAddress (3), 9);
+  // echoClient1.SetAttribute ("MaxPackets", UintegerValue ((uint32_t)(m_totalTime*(1/m_packetInterval))));
+  // echoClient1.SetAttribute ("Interval", TimeValue (Seconds (m_packetInterval)));
+  // echoClient1.SetAttribute ("PacketSize", UintegerValue (m_packetSize));
+  // clientApps.Add(echoClient1.Install(nodes.Get(7)));
+
+  // UdpClientHelper echoClient2 (interfaces.GetAddress (6), 9);
+  // echoClient2.SetAttribute ("MaxPackets", UintegerValue ((uint32_t)(m_totalTime*(1/m_packetInterval))));
+  // echoClient2.SetAttribute ("Interval", TimeValue (Seconds (m_packetInterval)));
+  // echoClient2.SetAttribute ("PacketSize", UintegerValue (m_packetSize));
+  // clientApps.Add(echoClient2.Install(nodes.Get(8)));
+
   NS_LOG_UNCOND("number of client apps in container = " << int(clientApps.GetN()));
   
   clientApps.Start (Seconds (0.0));
   clientApps.Stop (Seconds (m_totalTime));
 }
-void MeshTest::GetSetChannelNumber (uint16_t newChannelNumber)
+void MeshTest::GetSetChannelNumber (uint16_t newChannelNumber, uint8_t serverNode, uint8_t clientNode)
 {
-  // loop over all mesh points
-  for (NetDeviceContainer::Iterator i = meshDevices.Begin(); i !=meshDevices.End(); ++i)
-    {
-        Ptr<MeshPointDevice> mp = DynamicCast<MeshPointDevice>(*i);
-        NS_ASSERT (mp != 0);
-        // loop over all interfaces
-        std::vector<Ptr<NetDevice> > meshInterfaces = mp->GetInterfaces ();
+  // Get specific server node
+  Ptr<NetDevice> dev = meshDevices.Get(serverNode);
+  Ptr<MeshPointDevice> mp = DynamicCast<MeshPointDevice>(dev);
+  NS_ASSERT (mp != 0);
+  // loop over all interfaces
+  std::vector<Ptr<NetDevice> > meshInterfaces = mp->GetInterfaces ();
 
-        for (std::vector<Ptr<NetDevice> >::iterator j = meshInterfaces.begin(); j != meshInterfaces.end(); ++j)
-        {
-            Ptr<WifiNetDevice> ifdevice = DynamicCast<WifiNetDevice>(*j);
-            //access the WifiPhy ptr
-            Ptr<WifiPhy> wifiPhyPtr = ifdevice->GetPhy ();
-            NS_ASSERT(wifiPhyPtr != 0);
-            // access MAC
-            //NS_LOG_UNCOND("the configured channel number in phy is " << int(wifiPhyPtr->GetChannelNumber()));
-            Ptr<MeshWifiInterfaceMac> ifmac = DynamicCast<MeshWifiInterfaceMac>(ifdevice->GetMac());
-            NS_ASSERT (ifmac != 0);
-            // Access channel number)
+  for (std::vector<Ptr<NetDevice> >::iterator j = meshInterfaces.begin(); j != meshInterfaces.end(); ++j)
+  {
+      Ptr<WifiNetDevice> ifdevice = DynamicCast<WifiNetDevice>(*j);
+      //access the WifiPhy ptr
+      Ptr<WifiPhy> wifiPhyPtr = ifdevice->GetPhy ();
+      NS_ASSERT(wifiPhyPtr != 0);
+      // access MAC
+      //NS_LOG_UNCOND("the configured channel number in phy is " << int(wifiPhyPtr->GetChannelNumber()));
+      Ptr<MeshWifiInterfaceMac> ifmac = DynamicCast<MeshWifiInterfaceMac>(ifdevice->GetMac());
+      NS_ASSERT (ifmac != 0);
+      // Access channel number)
 
-            //NS_LOG_UNCOND ("Old channel: " << ifmac->GetFrequencyChannel ());
-            // Change channel 
-            ifmac->SwitchFrequencyChannel (newChannelNumber);
-            NS_LOG_UNCOND ("New channel: " << ifmac->GetFrequencyChannel ());
-            wifiPhyPtr = ifdevice->GetPhy ();
-            NS_ASSERT(wifiPhyPtr != 0);
-            // access MAC
-            NS_LOG_UNCOND("the new configured channel number in phy is " << int(wifiPhyPtr->GetChannelNumber()));
-        }
-    }
+      //NS_LOG_UNCOND ("Old channel: " << ifmac->GetFrequencyChannel ());
+      // Change channel 
+      ifmac->SwitchFrequencyChannel (newChannelNumber);
+      NS_LOG_UNCOND ("New channel: " << ifmac->GetFrequencyChannel ());
+      wifiPhyPtr = ifdevice->GetPhy ();
+      NS_ASSERT(wifiPhyPtr != 0);
+      // NS_LOG_UNCOND("the new configured channel number in phy is " << int(wifiPhyPtr->GetChannelNumber()));
+  }
+
+  dev = meshDevices.Get(clientNode);
+  mp = DynamicCast<MeshPointDevice>(dev);
+  NS_ASSERT (mp != 0);
+  // loop over all interfaces
+  meshInterfaces = mp->GetInterfaces ();
+
+  for (std::vector<Ptr<NetDevice> >::iterator j = meshInterfaces.begin(); j != meshInterfaces.end(); ++j)
+  {
+      Ptr<WifiNetDevice> ifdevice = DynamicCast<WifiNetDevice>(*j);
+      //access the WifiPhy ptr
+      Ptr<WifiPhy> wifiPhyPtr = ifdevice->GetPhy ();
+      NS_ASSERT(wifiPhyPtr != 0);
+      // access MAC
+      //NS_LOG_UNCOND("the configured channel number in phy is " << int(wifiPhyPtr->GetChannelNumber()));
+      Ptr<MeshWifiInterfaceMac> ifmac = DynamicCast<MeshWifiInterfaceMac>(ifdevice->GetMac());
+      NS_ASSERT (ifmac != 0);
+      // Access channel number)
+
+      //NS_LOG_UNCOND ("Old channel: " << ifmac->GetFrequencyChannel ());
+      // Change channel 
+      ifmac->SwitchFrequencyChannel (newChannelNumber);
+      NS_LOG_UNCOND ("New channel: " << ifmac->GetFrequencyChannel ());
+      wifiPhyPtr = ifdevice->GetPhy ();
+      NS_ASSERT(wifiPhyPtr != 0);
+      // NS_LOG_UNCOND("the new configured channel number in phy is " << int(wifiPhyPtr->GetChannelNumber()));
+  }
+
 }
 void
 MeshTest::ConfigureWaveform ()
@@ -313,21 +348,25 @@ MeshTest::ConfigureWaveform ()
   NS_LOG_UNCOND("configuring waveform\n");
 }
 double
-MeshTest::CalculateThroughput (int channelNum, std::unordered_map<int, double> &throughputMap)
+MeshTest::CalculateThroughput (int channelNum, int node, std::unordered_map<int, double> &throughputMap)
 {
   NS_LOG_UNCOND("total packets through before: " << totalPacketsThrough);
   
-  currentTotalPackets = DynamicCast<UdpServer> (serverApps.Get (0))->GetReceived ();
-  for (int node=1; node<m_ySize*m_xSize; node++) {
-      currentTotalPackets += DynamicCast<UdpServer> (serverApps.Get (node))->GetReceived ();
-  }
+  currentTotalPackets = 0;
+  //for (int node=0; node<m_ySize*m_xSize; node++) {
+  //int node = 3;
+  int totalPacketsPerNode = DynamicCast<UdpServer> (serverApps.Get (node))->GetReceived ();
+  currentTotalPackets += totalPacketsPerNode;
+  NS_LOG_UNCOND("currentTotalPackets for node " << int(node) << " = " << totalPacketsPerNode);
+  //}
 
-  NS_LOG_UNCOND("current total packets " << currentTotalPackets);
-  packetsInInterval = currentTotalPackets - totalPacketsThrough;
+  //NS_LOG_UNCOND("current total packets " << currentTotalPackets);
+  //packetsInInterval = currentTotalPackets - totalPacketsThrough;
+  packetsInInterval = currentTotalPackets;
   NS_LOG_UNCOND("packets in the interval " << packetsInInterval);
-  totalPacketsThrough = currentTotalPackets;
+  //totalPacketsThrough = currentTotalPackets;
   //NS_LOG_UNCOND("total packets through after: " << totalPacketsThrough);
-  throughput = packetsInInterval * m_packetSize * 8 / (10 * 1000000.0); //Mbit/s
+  throughput = packetsInInterval * m_packetSize * 8 / (m_totalTime * 1000000.0); //Mbit/s
   NS_LOG_UNCOND("\n throughput: " << throughput << "\n");
   channelThroughputMap[channelNum] = throughput;
   return throughput;
@@ -342,15 +381,20 @@ MeshTest::Run ()
   CreateNodes ();
   InstallInternetStack ();
   ConfigureWaveform ();
-  Simulator::Schedule (Seconds (0), &WaveformGenerator::Start,
-    waveformGeneratorDevices.Get (0)->GetObject<NonCommunicatingNetDevice> ()->GetPhy ()->GetObject<WaveformGenerator> ());
+  InstallServerApplication ();
+  InstallClientApplication (0, 5);
+  InstallClientApplication (3, 7);
+  InstallClientApplication (6, 8);
+  // Simulator::Schedule (Seconds (0), &WaveformGenerator::Start,
+  //   waveformGeneratorDevices.Get (0)->GetObject<NonCommunicatingNetDevice> ()->GetPhy ()->GetObject<WaveformGenerator> ());
   
-  for (int channel=1; channel<=13; channel++) {
-      Simulator::Schedule(Seconds (10*channel-10), &MeshTest::GetSetChannelNumber, this, channel);
-      Simulator::Schedule(Seconds (10*channel), &MeshTest::CalculateThroughput, this, channel, channelThroughputMap);
-  }
+  Simulator::Schedule(Seconds (0), &MeshTest::GetSetChannelNumber, this, 1, 0, 5);
+  Simulator::Schedule(Seconds (m_totalTime), &MeshTest::CalculateThroughput, this, 1, 0, channelThroughputMap);
+  Simulator::Schedule(Seconds (0), &MeshTest::GetSetChannelNumber, this, 5, 3, 7);
+  Simulator::Schedule(Seconds (m_totalTime), &MeshTest::CalculateThroughput, this, 5, 3, channelThroughputMap);
+  Simulator::Schedule(Seconds (0), &MeshTest::GetSetChannelNumber, this, 11, 6, 8);
+  Simulator::Schedule(Seconds (m_totalTime), &MeshTest::CalculateThroughput, this, 11, 6, channelThroughputMap);
 
-  InstallApplication ();
   Config::ConnectWithoutContext ("/NodeList/0/DeviceList/*/Phy/MonitorSnifferRx", MakeCallback (&MonitorSniffRx));
   Simulator::Stop (Seconds (m_totalTime));
   Simulator::Run ();
@@ -365,7 +409,7 @@ MeshTest::Run ()
       }
   }
   NS_LOG_UNCOND ("max throughput: " << current_max << " on channel " << max_channel);
-  //NS_LOG_UNCOND ("average signal (dBm) " << g_signalDbmAvg << " average noise (dBm) " << g_noiseDbmAvg);
+  NS_LOG_UNCOND ("average signal (dBm) " << g_signalDbmAvg << " average noise (dBm) " << g_noiseDbmAvg);
   Simulator::Destroy ();
   return 0;
 }

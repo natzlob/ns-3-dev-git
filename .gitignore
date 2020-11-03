@@ -36,5 +36,5 @@ build-dir/
 build/
 /.cproject
 /.project
-
+/.vscode
 version.cache
