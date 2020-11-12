@@ -168,10 +168,21 @@ MeshTest::CreateNodes ()
    * Create m_ySize*m_xSize stations to form a grid topology
    */
   nodes.Create (m_ySize*m_xSize);
-  // Configure YansWifiChannel
-  YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
-  YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
-  wifiPhy.SetChannel (wifiChannel.Create ());
+  interfNode.Create(1);
+  spectrumPhy = SpectrumWifiPhyHelper::Default ();
+  spectrumChannel = CreateObject<MultiModelSpectrumChannel> ();
+  Ptr<FriisPropagationLossModel> lossModel
+    = CreateObject<FriisPropagationLossModel> ();
+  lossModel->SetFrequency (2.417e9);
+  spectrumChannel->AddPropagationLossModel (lossModel);
+
+  Ptr<ConstantSpeedPropagationDelayModel> delayModel
+    = CreateObject<ConstantSpeedPropagationDelayModel> ();
+  spectrumChannel->SetPropagationDelayModel (delayModel);
+
+  spectrumPhy.SetChannel (spectrumChannel);
+  spectrumPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
+  spectrumPhy.Set ("Frequency", UintegerValue(2417));
   /*
    * Create mesh helper and set stack installer to it
    * Stack installer creates all needed protocols and install them to
@@ -200,7 +211,8 @@ MeshTest::CreateNodes ()
   // Set number of interfaces - default is single-interface mesh point
   mesh.SetNumberOfInterfaces (m_nIfaces);
   // Install protocols and return container if MeshPointDevices
-  meshDevices = mesh.Install (wifiPhy, nodes);
+  // meshDevices = mesh.Install (wifiPhy, nodes);
+  meshDevices = mesh.Install (spectrumPhy, nodes);
   // Setup mobility - static grid topology
   MobilityHelper mobility;
   mobility.SetPositionAllocator ("ns3::GridPositionAllocator",
@@ -212,12 +224,22 @@ MeshTest::CreateNodes ()
                                  "LayoutType", StringValue ("RowFirst"));
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   mobility.Install (nodes);
+
+  MobilityHelper interfMobility;
+  Ptr<ListPositionAllocator> posAlloc = CreateObject<ListPositionAllocator> ();
+  posAlloc->Add (Vector (m_step, m_step, 0.0));
+  interfMobility.SetPositionAllocator (posAlloc);
+  interfMobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
+  interfMobility.Install (interfNode);
+
   if (m_pcap)
-    wifiPhy.EnablePcapAll (std::string ("mp-"));
+    // wifiPhy.EnablePcapAll (std::string ("mp-"));
+    spectrumPhy.EnablePcapAll (std::string ("mp-"));
   if (m_ascii)
     {
       AsciiTraceHelper ascii;
-      wifiPhy.EnableAsciiAll (ascii.CreateFileStream ("mesh.tr"));
+      // wifiPhy.EnableAsciiAll (ascii.CreateFileStream ("mesh.tr"));
+      spectrumPhy.EnableAsciiAll (ascii.CreateFileStream ("mesh.tr"));
     }
 }
 void
@@ -236,11 +258,12 @@ MeshTest::InstallApplication ()
   serverApps = echoServer.Install (nodes.Get (0));
   serverApps.Start (Seconds (0.0));
   serverApps.Stop (Seconds (m_totalTime));
+
   UdpClientHelper echoClient (interfaces.GetAddress (0), 9);
   echoClient.SetAttribute ("MaxPackets", UintegerValue ((uint32_t)(m_totalTime*(1/m_packetInterval))));
   echoClient.SetAttribute ("Interval", TimeValue (Seconds (m_packetInterval)));
   echoClient.SetAttribute ("PacketSize", UintegerValue (m_packetSize));
-  ApplicationContainer clientApps = echoClient.Install (nodes.Get (m_xSize*m_ySize-1));
+  clientApps = echoClient.Install (nodes.Get (1));
   clientApps.Start (Seconds (0.0));
   clientApps.Stop (Seconds (m_totalTime));
 }
