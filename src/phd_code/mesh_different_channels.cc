@@ -382,18 +382,51 @@ MeshTest::Run ()
   InstallInternetStack ();
   ConfigureWaveform ();
   InstallServerApplication ();
-  InstallClientApplication (0, 5);
-  InstallClientApplication (3, 7);
-  InstallClientApplication (6, 8);
-  // Simulator::Schedule (Seconds (0), &WaveformGenerator::Start,
-  //   waveformGeneratorDevices.Get (0)->GetObject<NonCommunicatingNetDevice> ()->GetPhy ()->GetObject<WaveformGenerator> ());
+
+  // for (int serverNode=0; serverNode<=6; serverNode+=2) {
+  //   int clientNode=serverNode+1;
+  //   int channel = serverNode+2;
+  int serverNode = 0;
+  int clientNode = 1;
+  int channel = 2;
+    InstallClientApplication (serverNode, clientNode);
+    Simulator::Schedule(Seconds (0), &MeshTest::GetSetChannelNumber, this, channel, serverNode, clientNode);
+    Simulator::Schedule(Seconds (m_totalTime), &MeshTest::CalculateThroughput, this, channel, serverNode, channelThroughputMap);
+  // }
+
+  serverNode=2;
+  clientNode=3;
+  channel = 4;
+  InstallClientApplication (serverNode, clientNode);
+  Simulator::Schedule(Seconds (0), &MeshTest::GetSetChannelNumber, this, channel, serverNode, clientNode);
+  Simulator::Schedule(Seconds (m_totalTime), &MeshTest::CalculateThroughput, this, channel, serverNode, channelThroughputMap);
+
+  serverNode = 4;
+  clientNode = 5;
+  channel = 6;
+  InstallClientApplication (serverNode, clientNode);
+  Simulator::Schedule(Seconds (0), &MeshTest::GetSetChannelNumber, this, channel, serverNode, clientNode);
+  Simulator::Schedule(Seconds (m_totalTime), &MeshTest::CalculateThroughput, this, channel, serverNode, channelThroughputMap);
+
+  serverNode = 6;
+  clientNode = 7;
+  channel = 8;
+  InstallClientApplication (serverNode, clientNode);
+  Simulator::Schedule(Seconds (0), &MeshTest::GetSetChannelNumber, this, channel, serverNode, clientNode);
+  Simulator::Schedule(Seconds (m_totalTime), &MeshTest::CalculateThroughput, this, channel, serverNode, channelThroughputMap);
+  //}
+  // InstallClientApplication (0, 5);
+  // InstallClientApplication (3, 7);
+  // InstallClientApplication (6, 8);
+  // // Simulator::Schedule (Seconds (0), &WaveformGenerator::Start,
+  // //   waveformGeneratorDevices.Get (0)->GetObject<NonCommunicatingNetDevice> ()->GetPhy ()->GetObject<WaveformGenerator> ());
   
-  Simulator::Schedule(Seconds (0), &MeshTest::GetSetChannelNumber, this, 1, 0, 5);
-  Simulator::Schedule(Seconds (m_totalTime), &MeshTest::CalculateThroughput, this, 1, 0, channelThroughputMap);
-  Simulator::Schedule(Seconds (0), &MeshTest::GetSetChannelNumber, this, 5, 3, 7);
-  Simulator::Schedule(Seconds (m_totalTime), &MeshTest::CalculateThroughput, this, 5, 3, channelThroughputMap);
-  Simulator::Schedule(Seconds (0), &MeshTest::GetSetChannelNumber, this, 11, 6, 8);
-  Simulator::Schedule(Seconds (m_totalTime), &MeshTest::CalculateThroughput, this, 11, 6, channelThroughputMap);
+  // Simulator::Schedule(Seconds (0), &MeshTest::GetSetChannelNumber, this, 1, 0, 5);
+  // Simulator::Schedule(Seconds (m_totalTime), &MeshTest::CalculateThroughput, this, 1, 0, channelThroughputMap);
+  // Simulator::Schedule(Seconds (0), &MeshTest::GetSetChannelNumber, this, 5, 3, 7);
+  // Simulator::Schedule(Seconds (m_totalTime), &MeshTest::CalculateThroughput, this, 5, 3, channelThroughputMap);
+  // Simulator::Schedule(Seconds (0), &MeshTest::GetSetChannelNumber, this, 11, 6, 8);
+  // Simulator::Schedule(Seconds (m_totalTime), &MeshTest::CalculateThroughput, this, 11, 6, channelThroughputMap);
 
   Config::ConnectWithoutContext ("/NodeList/0/DeviceList/*/Phy/MonitorSnifferRx", MakeCallback (&MonitorSniffRx));
   Simulator::Stop (Seconds (m_totalTime));
