@@ -449,6 +449,8 @@ MeshTest::Run ()
 int
 main (int argc, char *argv[])
 {
+  LogComponentEnable ("UdpClient", LOG_LEVEL_DEBUG);
+  LogComponentEnable ("UdpServer", LOG_LEVEL_DEBUG);
   MeshTest t; 
   return t.Run ();
 }
