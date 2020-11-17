@@ -18,6 +18,11 @@
 #include "ns3/waveform-generator.h"
 #include "ns3/waveform-generator-helper.h"
 #include "ns3/non-communicating-net-device.h"
+#include "ns3/ipv4-global-routing-helper.h"
+#include "ns3/olsr-helper.h"
+#include "ns3/ipv4-static-routing-helper.h"
+#include "ns3/ipv4-list-routing-helper.h"
+
 
 using namespace ns3;
 
@@ -143,12 +148,12 @@ private:
   void Report ();
 };
 MeshTest::MeshTest () :
-  m_xSize (3),
-  m_ySize (3),
-  m_step (50.0),
+  m_xSize (2),
+  m_ySize (2),
+  m_step (100.0),
   m_randomStart (0.1),
   m_totalTime (50.0),
-  m_packetInterval (0.1),
+  m_packetInterval (0.01),
   m_packetSize (1024),
   m_nIfaces (2),
   m_chan (true),
@@ -183,6 +188,10 @@ MeshTest::CreateNodes ()
   spectrumPhy.SetChannel (spectrumChannel);
   spectrumPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
   spectrumPhy.Set ("Frequency", UintegerValue(2417));
+
+  spectrumPhy.Set ("MaxSupportedTxSpatialStreams", UintegerValue (2));
+  spectrumPhy.Set ("MaxSupportedRxSpatialStreams", UintegerValue (2));
+  spectrumPhy.Set ("Antennas", UintegerValue (2));
   /*
    * Create mesh helper and set stack installer to it
    * Stack installer creates all needed protocols and install them to
@@ -197,6 +206,7 @@ MeshTest::CreateNodes ()
   // Install protocols and return container if MeshPointDevices
   // meshDevices = mesh.Install (wifiPhy, nodes);
   meshDevices = mesh.Install (spectrumPhy, nodes);
+  NS_LOG_UNCOND("number of mesh point devices = " << meshDevices.GetN());
   // Setup mobility - static grid topology
   MobilityHelper mobility;
 
@@ -216,7 +226,26 @@ MeshTest::CreateNodes ()
 void
 MeshTest::InstallInternetStack ()
 {
+  OlsrHelper olsr;
+
+  // Ipv4StaticRoutingHelper staticRouting;
+
+  // Ipv4ListRoutingHelper list;
+  // list.Add (staticRouting, 0);
+  // list.Add (olsr, 10);
+
   InternetStackHelper internetStack;
+  internetStack.SetRoutingHelper (olsr);
+
+  Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
+
+  // Ipv4StaticRoutingHelper ipv4RoutingHelper;
+
+  // Ptr<Node> aNode = nodes.Get (0);
+  // Ptr<Ipv4StaticRouting> staticRouting = ipv4RoutingHelper.GetStaticRouting (aNode->GetObject<Ipv4> ());    //Ipv4 static routing helper
+  // staticRouting->AddNetworkRouteTo (Ipv4Address ("10.1.1.0"), Ipv4Mask ("255.255.255.0"), 1);
+
+  // internetStack.SetRoutingHelper(ipv4RoutingHelper);
   internetStack.Install (nodes);
   Ipv4AddressHelper address;
   address.SetBase ("10.1.1.0", "255.255.255.0");
@@ -255,15 +284,18 @@ void MeshTest::GetSetChannelNumber (uint16_t newChannelNumber, uint8_t serverNod
   NS_ASSERT (mp != 0);
   // loop over all interfaces
   std::vector<Ptr<NetDevice> > meshInterfaces = mp->GetInterfaces ();
+  NS_LOG_UNCOND("number of interfaces per mesh point device = " << meshInterfaces.size());
 
-  for (std::vector<Ptr<NetDevice> >::iterator j = meshInterfaces.begin(); j != meshInterfaces.end(); ++j)
-  {
-      Ptr<WifiNetDevice> ifdevice = DynamicCast<WifiNetDevice>(*j);
-      Ptr<MeshWifiInterfaceMac> ifmac = DynamicCast<MeshWifiInterfaceMac>(ifdevice->GetMac());
-      NS_ASSERT (ifmac != 0);
-      ifmac->SwitchFrequencyChannel (newChannelNumber);
-      NS_LOG_UNCOND ("New channel: " << ifmac->GetFrequencyChannel ());
-  }
+  //for (std::vector<Ptr<NetDevice> >::iterator j = meshInterfaces.begin(); j != meshInterfaces.end(); ++j)
+  Ptr<NetDevice> interface = meshInterfaces[0];
+  //{
+  //Ptr<WifiNetDevice> ifdevice = DynamicCast<WifiNetDevice>(*j);
+  Ptr<WifiNetDevice> ifdevice = DynamicCast<WifiNetDevice>(interface);
+  Ptr<MeshWifiInterfaceMac> ifmac = DynamicCast<MeshWifiInterfaceMac>(ifdevice->GetMac());
+  NS_ASSERT (ifmac != 0);
+  ifmac->SwitchFrequencyChannel (newChannelNumber);
+  NS_LOG_UNCOND ("New channel: " << ifmac->GetFrequencyChannel ());
+  //}
 
   dev = meshDevices.Get(clientNode);
   mp = DynamicCast<MeshPointDevice>(dev);
@@ -271,14 +303,15 @@ void MeshTest::GetSetChannelNumber (uint16_t newChannelNumber, uint8_t serverNod
   // loop over all interfaces
   meshInterfaces = mp->GetInterfaces ();
 
-  for (std::vector<Ptr<NetDevice> >::iterator j = meshInterfaces.begin(); j != meshInterfaces.end(); ++j)
-  {
-      Ptr<WifiNetDevice> ifdevice = DynamicCast<WifiNetDevice>(*j);
-      Ptr<MeshWifiInterfaceMac> ifmac = DynamicCast<MeshWifiInterfaceMac>(ifdevice->GetMac());
-      NS_ASSERT (ifmac != 0); 
-      ifmac->SwitchFrequencyChannel (newChannelNumber);
-      NS_LOG_UNCOND ("New channel: " << ifmac->GetFrequencyChannel ());
-  }
+  //for (std::vector<Ptr<NetDevice> >::iterator j = meshInterfaces.begin(); j != meshInterfaces.end(); ++j)
+  interface = meshInterfaces[1];
+  //{
+  ifdevice = DynamicCast<WifiNetDevice>(interface);
+  ifmac = DynamicCast<MeshWifiInterfaceMac>(ifdevice->GetMac());
+  NS_ASSERT (ifmac != 0); 
+  ifmac->SwitchFrequencyChannel (newChannelNumber);
+  NS_LOG_UNCOND ("New channel: " << ifmac->GetFrequencyChannel ());
+  //}
 
 }
 double
@@ -337,6 +370,8 @@ MeshTest::Run ()
 int
 main (int argc, char *argv[])
 {
+  LogComponentEnable ("UdpClient", LOG_LEVEL_DEBUG);
+  LogComponentEnable ("UdpServer", LOG_LEVEL_DEBUG);
   MeshTest t; 
   return t.Run ();
 }
