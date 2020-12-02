@@ -390,12 +390,14 @@ MeshTest::Run ()
       InstallClientApplication (serverNode, clientNode);
       Simulator::Schedule(Seconds (0), &MeshTest::GetSetChannelNumber, this, channel, serverNode, clientNode);
       Simulator::Schedule(Seconds (m_totalTime), &MeshTest::CalculateThroughput, this, channel, serverNode, channelThroughputMap);
-      //Config::ConnectWithoutContext ("/NodeList/*/DeviceList/0/Phy/MonitorSnifferRx", MakeCallback (&MonitorSniffRx));
+      if (channelIndex < 13) {
+        channelIndex++;
       }
       else {
         channelIndex=0;
       }
     }
+  }
 
   Simulator::Stop (Seconds (m_totalTime));
 
