@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <numeric>
+#include <string>
 
 #include "ns3/core-module.h"
 #include "ns3/internet-module.h"
@@ -28,6 +29,8 @@
 #include "ns3/non-communicating-net-device.h"
 #include "ns3/olsr-helper.h"
 #include "ns3/ipv4-global-routing-helper.h"
+#include "ns3/snr-tag.h"
+#include "ns3/trace-helper.h"
 
 using namespace ns3;
 
@@ -36,16 +39,20 @@ double g_signalDbmAvg;
 double g_noiseDbmAvg;
 uint32_t g_samples;
 
-void MonitorSniffRx (Ptr<const Packet> packet,
+void MonitorSniffRx (Ptr<OutputStreamWrapper> stream,
+                     std::string node_num,
+                     Ptr<const Packet> packet,
                      uint16_t channelFreqMhz,
                      WifiTxVector txVector,
                      MpduInfo aMpdu,
                      SignalNoiseDbm signalNoise)
 
 {
-  g_samples++;
-  g_signalDbmAvg += ((signalNoise.signal - g_signalDbmAvg) / g_samples);
-  g_noiseDbmAvg += ((signalNoise.noise - g_noiseDbmAvg) / g_samples);
+  // g_samples++;
+  // g_signalDbmAvg += ((signalNoise.signal - g_signalDbmAvg) / g_samples);
+  // g_noiseDbmAvg += ((signalNoise.noise - g_noiseDbmAvg) / g_samples);
+  // outfile << "node , " << node_num << " , SNR , " << signalNoise.signal - signalNoise.noise << "\n";
+  *stream->GetStream () << "node , " << node_num << " , SNR , " << signalNoise.signal - signalNoise.noise << "\n";
 }
 
 template < typename T > 
@@ -174,7 +181,7 @@ MeshTest::MeshTest () :
   m_ySize (3),
   m_step (100.0),
   m_randomStart (0.1),
-  m_totalTime (100.0),
+  m_totalTime (50.0),
   m_packetInterval (0.01),
   m_packetSize (1024),
   m_nIfaces (2),
@@ -228,6 +235,8 @@ MeshTest::CreateNodes ()
   mesh.SetNumberOfInterfaces (m_nIfaces);
   // Install protocols and return container if MeshPointDevices
   // meshDevices = mesh.Install (wifiPhy, nodes);
+  // AsciiTraceHelper ascii;
+  // mesh.EnableAsciiAll (ascii.CreateFileStream("mesh_interfaces_olsr.tr"));
   meshDevices = mesh.Install (spectrumPhy, nodes);
   // Setup mobility - static grid topology
   MobilityHelper mobility;
@@ -250,7 +259,7 @@ MeshTest::CreateNodes ()
   interfMobility.Install (interfNode);
 
   AsciiTraceHelper ascii;
-  spectrumPhy.EnableAsciiAll (ascii.CreateFileStream ("mesh_minimal.tr"));
+  spectrumPhy.EnableAsciiAll (ascii.CreateFileStream ("mesh_olsr.tr"));
 }
 void
 MeshTest::InstallInternetStack ()
@@ -336,6 +345,9 @@ MeshTest::CalculateThroughput (int channelNum, int node, std::unordered_map<int,
   throughput = packetsInInterval * m_packetSize * 8 / (m_totalTime * 1000000.0); //Mbit/s
   NS_LOG_UNCOND("\n throughput: " << throughput << "\n");
   channelThroughputMap[channelNum] = throughput;
+
+  //Config::ConnectWithoutContext ("/NodeList/" + std::to_string(node) + "/DeviceList/0/Phy/MonitorSnifferRx", MakeCallback (&MonitorSniffRx));
+
   return throughput;
 }
 int
@@ -344,6 +356,9 @@ MeshTest::Run ()
   g_signalDbmAvg = 0;
   g_noiseDbmAvg = 0;
   g_samples = 0;
+  AsciiTraceHelper asciiTraceHelper;
+  Ptr<OutputStreamWrapper> stream = asciiTraceHelper.CreateFileStream("SNRtrace.tr");
+
   PacketMetadata::Enable ();
   CreateNodes ();
   InstallInternetStack ();
@@ -353,28 +368,55 @@ MeshTest::Run ()
   std::vector<int> values (m_xSize*m_ySize);
   std::iota(values.begin(), values.end(), 0);
 
-  int channel=1;
+  std::vector<int> channels (13);
+  std::iota(channels.begin(), channels.end(), 1);
+  std::random_shuffle(std::begin(channels), std::end(channels));
+  for (uint8_t i=0; i<channels.size(); i++)
+  {
+    std::cout << "channel number: " << channels[i] << std::endl;
+  }
+
   int serverNode;
   int clientNode;
+  uint8_t channelIndex=0;
+  uint8_t channel=0;
 
   for (auto pair : make_unique_pairs(values)) {
     NS_LOG_UNCOND(pair.first << ", " << pair.second << "\n");
     if (pair.first!= pair.second) {
       serverNode = pair.first;
       clientNode = pair.second;
+      channel = channels[channelIndex];
       InstallClientApplication (serverNode, clientNode);
       Simulator::Schedule(Seconds (0), &MeshTest::GetSetChannelNumber, this, channel, serverNode, clientNode);
       Simulator::Schedule(Seconds (m_totalTime), &MeshTest::CalculateThroughput, this, channel, serverNode, channelThroughputMap);
-      if (channel<14) {
-        channel++;
+      //Config::ConnectWithoutContext ("/NodeList/*/DeviceList/0/Phy/MonitorSnifferRx", MakeCallback (&MonitorSniffRx));
       }
       else {
-        channel=1;
+        channelIndex=0;
       }
     }
-  }
 
   Simulator::Stop (Seconds (m_totalTime));
+
+  Config::ConnectWithoutContext ("/NodeList/0/DeviceList/0/Phy/MonitorSnifferRx", MakeBoundCallback (&MonitorSniffRx, stream, "00"));
+  Config::ConnectWithoutContext ("/NodeList/0/DeviceList/1/Phy/MonitorSnifferRx", MakeBoundCallback (&MonitorSniffRx, stream, "01"));
+  Config::ConnectWithoutContext ("/NodeList/1/DeviceList/0/Phy/MonitorSnifferRx", MakeBoundCallback (&MonitorSniffRx, stream, "10"));
+  Config::ConnectWithoutContext ("/NodeList/1/DeviceList/1/Phy/MonitorSnifferRx", MakeBoundCallback (&MonitorSniffRx, stream, "11"));
+  Config::ConnectWithoutContext ("/NodeList/2/DeviceList/0/Phy/MonitorSnifferRx", MakeBoundCallback (&MonitorSniffRx, stream, "20"));
+  Config::ConnectWithoutContext ("/NodeList/2/DeviceList/1/Phy/MonitorSnifferRx", MakeBoundCallback (&MonitorSniffRx, stream, "21"));
+  Config::ConnectWithoutContext ("/NodeList/3/DeviceList/0/Phy/MonitorSnifferRx", MakeBoundCallback (&MonitorSniffRx, stream, "30"));
+  Config::ConnectWithoutContext ("/NodeList/3/DeviceList/1/Phy/MonitorSnifferRx", MakeBoundCallback (&MonitorSniffRx, stream, "31"));
+  Config::ConnectWithoutContext ("/NodeList/4/DeviceList/0/Phy/MonitorSnifferRx", MakeBoundCallback (&MonitorSniffRx, stream, "40"));
+  Config::ConnectWithoutContext ("/NodeList/4/DeviceList/1/Phy/MonitorSnifferRx", MakeBoundCallback (&MonitorSniffRx, stream, "41"));
+  Config::ConnectWithoutContext ("/NodeList/5/DeviceList/0/Phy/MonitorSnifferRx", MakeBoundCallback (&MonitorSniffRx, stream, "50"));
+  Config::ConnectWithoutContext ("/NodeList/5/DeviceList/1/Phy/MonitorSnifferRx", MakeBoundCallback (&MonitorSniffRx, stream, "51"));
+  Config::ConnectWithoutContext ("/NodeList/6/DeviceList/0/Phy/MonitorSnifferRx", MakeBoundCallback (&MonitorSniffRx, stream, "60"));
+  Config::ConnectWithoutContext ("/NodeList/6/DeviceList/1/Phy/MonitorSnifferRx", MakeBoundCallback (&MonitorSniffRx, stream, "61"));
+  Config::ConnectWithoutContext ("/NodeList/7/DeviceList/0/Phy/MonitorSnifferRx", MakeBoundCallback (&MonitorSniffRx, stream, "70"));
+  Config::ConnectWithoutContext ("/NodeList/7/DeviceList/1/Phy/MonitorSnifferRx", MakeBoundCallback (&MonitorSniffRx, stream, "71"));
+  Config::ConnectWithoutContext ("/NodeList/8/DeviceList/0/Phy/MonitorSnifferRx", MakeBoundCallback (&MonitorSniffRx, stream, "80"));
+  Config::ConnectWithoutContext ("/NodeList/8/DeviceList/1/Phy/MonitorSnifferRx", MakeBoundCallback (&MonitorSniffRx, stream, "81"));
   Simulator::Run ();
 
   double current_max = 0.0;
@@ -394,6 +436,6 @@ MeshTest::Run ()
 int
 main (int argc, char *argv[])
 {
-  MeshTest t; 
+  MeshTest t;
   return t.Run ();
 }
