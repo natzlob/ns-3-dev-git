@@ -20,17 +20,18 @@ using namespace std;
 //     seeder.generate(&out,&out+1);
 //     return out;
 // }
-std::map<int, int> mapLinkChannel(int numLinks, int maxChannel) {
+std::map<int, int> mapLinkChannel(int numLinks, std::vector<int> channels) {
     std::map<int, int> solution;
-    int channel = 1;
+    int channelIndex = 0;
+    int maxChannel = channels.size()-1;
 
     for (int n=0; n<numLinks; n++) {
-        solution.insert({ n, channel });
-        if (channel < maxChannel) {
-            channel ++;
+        solution.insert({ n, channels[channelIndex] });
+        if (channelIndex < maxChannel) {
+            channelIndex ++;
         }
         else {
-            channel=1;
+            channelIndex=0;
         }
     }
     return solution;
@@ -67,22 +68,37 @@ int main (){
     uint16_t m_xSize = 3;
     uint16_t m_ySize = 3;
     // std::default_random_engine SAgen(seedseq_random_using_clock());
+    std::vector<int> channels (13);
+    std::iota(channels.begin(), channels.end(), 1);
 
+    std::random_shuffle(std::begin(channels), std::end(channels));
+    for (uint8_t i=0; i<channels.size(); i++)
+    {
+        std::cout << "channel number: " << channels[i] << std::endl;
+    }
+    
     std::vector<int> nodeNums (m_xSize*m_ySize);
     std::iota(nodeNums.begin(), nodeNums.end(), 0);
     std::vector< std::pair<int, int> > links;
     links = make_unique_pairs(nodeNums);
-    std::map<int, int> solution = mapLinkChannel(numLinks, maxChannel);
+    std::map<int, int> solution = mapLinkChannel(links.size(), channels);
 
     std::vector<std::pair<int, int>>::iterator linkIter;
+    int linkIndex = 0;
+    cout << "links: \n";
     for(linkIter=links.begin(); linkIter!=links.end(); ++linkIter) {
-        cout << linkIter->first <<  "=> " << linkIter->second << '\n';
+        cout << linkIter->first <<  "=> " << linkIter->second << ": channel =";
+        cout << solution[linkIndex] << '\n';
+        linkIndex++;
     }
   
     std::map<int, int>::iterator it;
     for(it=solution.begin(); it!=solution.end(); ++it){
         cout << it->first << " => " << it->second << '\n';
     }
+
+    // int result = system("/usr/bin/python average.py");
+    // cout << "average from python script = " << result << endl;
 
     solution = generateNewSolution(numLinks, maxChannel, solution);
 
