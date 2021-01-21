@@ -9,7 +9,6 @@
 #include <ctime>
 #include <numeric>
 #include <string>
-#include <map>
 
 #include "ns3/core-module.h"
 #include "ns3/internet-module.h"
@@ -33,8 +32,6 @@
 #include "ns3/snr-tag.h"
 #include "ns3/trace-helper.h"
 
-#include "/home/natasha/repos/ns-3-dev-git/src/phd_code/SA_algorithm.h"
-
 using namespace ns3;
 
 // Global variables for use in callbacks.
@@ -51,11 +48,6 @@ void MonitorSniffRx (Ptr<OutputStreamWrapper> stream,
                      SignalNoiseDbm signalNoise)
 
 {
-  // g_samples++;
-  // g_signalDbmAvg += ((signalNoise.signal - g_signalDbmAvg) / g_samples);
-  // g_noiseDbmAvg += ((signalNoise.noise - g_noiseDbmAvg) / g_samples);
-
-  //*stream->GetStream () << "node , " << node_num << " , SNR , " << signalNoise.signal - signalNoise.noise << "\n";
   *stream->GetStream () << node_num << ", " << signalNoise.signal - signalNoise.noise << "\n";
 }
 
@@ -72,31 +64,6 @@ std::vector<std::pair<T,T> > make_unique_pairs(const std::vector<T>& set)
   }
 
   return result;
-}
-
-std::map<int, int> mapLinkChannel(int numLinks, std::vector<int> channels) {
-    std::map<int, int> solution;
-    int channelIndex = 0;
-    int maxChannel = channels.size()-1;
-
-    for (int n=0; n<numLinks; n++) {
-        solution.insert({ n, channels[channelIndex] });
-        if (channelIndex < maxChannel) {
-            channelIndex ++;
-        }
-        else {
-            channelIndex=0;
-        }
-    }
-    return solution;
-}
-
-std::map<int, int> generateNewSolution(int numLinks, int numChannels, std::map<int, int> solutionMap) {
-    // choose one link, assign a new channel to it
-    int link = rand() % numLinks;
-    int newChannel = rand() % numChannels;
-    solutionMap[link] = newChannel;
-    return solutionMap;
 }
 
 std::unordered_map<int, double> channelGainMap = {
@@ -143,7 +110,7 @@ public:
    * Run test
    * \returns the test status
    */
-  int Run ();
+  int Run (std::map<int, int> linkChannelMap, std::vector<std::pair<int, int>> links);
    /// Get current channel number and set to new channel
   void GetSetChannelNumber (uint16_t newChannelNumber, uint8_t serverNode, uint8_t clientNode);
 private:
@@ -233,7 +200,11 @@ MeshTest::CreateNodes ()
    */
   nodes.Create (m_ySize*m_xSize);
   interfNode.Create(1);
+  // Configure YansWifiChannel
+  // YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
   spectrumPhy = SpectrumWifiPhyHelper::Default ();
+  // wifiChannel = YansWifiChannelHelper::Default ();
+  //spectrumChannel = SpectrumChannelHelper::Default ();
   spectrumChannel = CreateObject<MultiModelSpectrumChannel> ();
   Ptr<FriisPropagationLossModel> lossModel
     = CreateObject<FriisPropagationLossModel> ();
@@ -375,43 +346,28 @@ MeshTest::CalculateThroughput (int channelNum, int node, std::unordered_map<int,
 
   return throughput;
 }
-void
-MeshTest::ConfigureWaveform ()
-{
-  Ptr<SpectrumValue> wgPsd = Create<SpectrumValue> (SpectrumModel2417MHz);
-  *wgPsd = waveformPower / 20e6;
-  waveformGeneratorHelper.SetChannel (spectrumChannel);
-  waveformGeneratorHelper.SetTxPowerSpectralDensity (wgPsd);
-  waveformGeneratorHelper.SetPhyAttribute ("Period", TimeValue (Seconds (0.0007)));
-  waveformGeneratorHelper.SetPhyAttribute ("DutyCycle", DoubleValue (1));
-  waveformGeneratorDevices = waveformGeneratorHelper.Install (interfNode);
-  NS_LOG_UNCOND("configuring waveform\n");
-}
 int
-MeshTest::Run ()
+MeshTest::Run (std::map<int, int> linkChannelMap, std::vector<std::pair<int, int>> links)
 {
   g_signalDbmAvg = 0;
   g_noiseDbmAvg = 0;
   g_samples = 0;
   AsciiTraceHelper asciiTraceHelper;
-  Ptr<OutputStreamWrapper> stream = asciiTraceHelper.CreateFileStream("SNRtrace_interference.tr");
+  Ptr<OutputStreamWrapper> stream = asciiTraceHelper.CreateFileStream("SNRtrace_3.tr");
+  Ptr<OutputStreamWrapper> stream2 = asciiTraceHelper.CreateFileStream("Channel-throughput_without_interference.txt");
 
   PacketMetadata::Enable ();
   CreateNodes ();
-  ConfigureWaveform ();
   InstallInternetStack ();
   InstallServerApplication ();
 
-  Simulator::Schedule (Seconds(0), &WaveformGenerator::Start,
-    waveformGeneratorDevices.Get(0)->GetObject<NonCommunicatingNetDevice>()->GetPhy()->GetObject<WaveformGenerator>());
   std::srand(std::time(nullptr));
-  std::vector<int> nodeNums (m_xSize*m_ySize);
-  std::iota(nodeNums.begin(), nodeNums.end(), 0);
+  std::vector<int> values (m_xSize*m_ySize);
+  std::iota(values.begin(), values.end(), 0);
 
   std::vector<int> channels (13);
   std::iota(channels.begin(), channels.end(), 1);
-
-  std::random_shuffle(std::begin(channels), std::end(channels));
+  //std::random_shuffle(std::begin(channels), std::end(channels));
   for (uint8_t i=0; i<channels.size(); i++)
   {
     std::cout << "channel number: " << channels[i] << std::endl;
@@ -421,26 +377,18 @@ MeshTest::Run ()
   int clientNode;
   uint8_t channel=0;
 
-  std::vector< std::pair<int, int> > links;
-  links = make_unique_pairs(nodeNums);
-  std::map<int, int> solution = mapLinkChannel(links.size(), channels);
-
-  // set up links
   std::vector<std::pair<int, int>>::iterator linkIter;
-  std::map<int, int>::iterator solutionIter;
-  solutionIter = solution.begin();
-
+  std::cout << "links: \n";
+  int linkIndex = 0;
   for(linkIter=links.begin(); linkIter!=links.end(); ++linkIter) {
-    NS_LOG_UNCOND(linkIter->first << ", " << linkIter->second << "\n");
-    channel = channels[solutionIter->second];
-    if (linkIter->first!= linkIter->second) {
-      serverNode = linkIter->first;
-      clientNode = linkIter->second;
-      InstallClientApplication (serverNode, clientNode);
-      Simulator::Schedule(Seconds (0), &MeshTest::GetSetChannelNumber, this, channel, serverNode, clientNode);
-      Simulator::Schedule(Seconds (m_totalTime), &MeshTest::CalculateThroughput, this, channel, serverNode, channelThroughputMap);
-    }
-    solutionIter++;
+    std::cout << linkIter->first <<  "=> " << linkIter->second << '\n';
+    serverNode = linkIter->first;
+    clientNode = linkIter->second;
+    channel = linkChannelMap[linkIndex];
+    linkIndex++;
+    InstallClientApplication (serverNode, clientNode);
+    Simulator::Schedule(Seconds (0), &MeshTest::GetSetChannelNumber, this, channel, serverNode, clientNode);
+    Simulator::Schedule(Seconds (m_totalTime), &MeshTest::CalculateThroughput, this, channel, serverNode, channelThroughputMap);
   }
 
   Simulator::Stop (Seconds (m_totalTime));
@@ -454,12 +402,27 @@ MeshTest::Run ()
     }
   }
   Simulator::Run ();
+
+  *stream2->GetStream() << "channel , throughput \n";
+  double current_max = 0.0;
+  unsigned int max_channel = 0;
+  for (int channel=1; channel<=13; channel++) {
+      NS_LOG_UNCOND("channel: " << channel << " , throughput: " << channelThroughputMap[channel]);
+      *stream2->GetStream() << channel << " , " << throughput << "\n";
+      if (channelThroughputMap[channel] > current_max) {
+          current_max = channelThroughputMap[channel];
+          max_channel = channel;
+      }
+  }
+  NS_LOG_UNCOND ("max throughput: " << current_max << " on channel " << max_channel);
   Simulator::Destroy ();
   return 0;
 }
 int
 main (int argc, char *argv[])
 {
+  CommandLine cmd;
+  cmd.Parse (argc, argv);
   MeshTest t;
   return t.Run ();
 }

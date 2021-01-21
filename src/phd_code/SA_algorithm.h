@@ -8,12 +8,14 @@
 #include <random>
 #include <chrono>
 #include <map>
+#include <string>
+#include <fstream>
 using namespace std;
 
 class SA_algorithm
 {
 public:
-    SA_algorithm(double Ti, int numberOfLinks, int numberOfChannels, std::map<int, int> startSolution, uint32_t Seed);
+    SA_algorithm(double Ti, int numberOfLinks, int numberOfChannels, std::map<int, int> startSolution, uint32_t Seed, std::string filename);
     std::pair<int, int> generateNewSolution(int numLinks, int numChannels);
     void setCurrentTemp();
     void Acceptance();
@@ -27,6 +29,7 @@ public:
     std::vector<vector<int> > getScheduleVecPtr();
     std::vector<double> getEnergyVec();
     std::vector<double> getSolnEnergyVec();
+    void initializeEnergyVec();
     unsigned int _algIter;
     int currentBest=0;
     double avgdE;

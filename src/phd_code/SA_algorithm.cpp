@@ -6,7 +6,7 @@ std::vector<vector<int>> SA_algorithm::_scheduleVec = {};
 
 vector<double> SA_algorithm::_energyVec = {};
 
-SA_algorithm::SA_algorithm(double Ti, int numberOfLinks, int numberOfChannels, std::map<int, int> startSolution, uint32_t Seed)
+SA_algorithm::SA_algorithm(double Ti, int numberOfLinks, int numberOfChannels, std::map<int, int> startSolution, uint32_t Seed, std::string filename)
 {
     _initTemp=Ti;
     _currentTemp=_initTemp;
@@ -21,6 +21,19 @@ SA_algorithm::SA_algorithm(double Ti, int numberOfLinks, int numberOfChannels, s
     _seed=Seed;
     std::default_random_engine gen(_seed);
     std::uniform_int_distribution<int> dis{1,RAND_MAX};
+
+    string line;
+    ifstream file (filename);
+    double snrAvg;
+    if (file.is_open())
+    {
+        while ( getline (file,line) )
+        {
+            snrAvg = line;
+            _energyVec.push_back(snrAvg);
+        }
+        file.close();
+    }    
 //    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 //    std::default_random_engine gen;
 //    std::uniform_int_distribution<int> dis{1,RAND_MAX};
