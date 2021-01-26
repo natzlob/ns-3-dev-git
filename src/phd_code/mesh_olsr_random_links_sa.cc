@@ -394,7 +394,7 @@ MeshTest::Run ()
   g_noiseDbmAvg = 0;
   g_samples = 0;
   AsciiTraceHelper asciiTraceHelper;
-  Ptr<OutputStreamWrapper> stream = asciiTraceHelper.CreateFileStream("SNRtrace_interference.tr");
+  Ptr<OutputStreamWrapper> stream = asciiTraceHelper.CreateFileStream("SNRtrace_SA.tr");
 
   PacketMetadata::Enable ();
   CreateNodes ();

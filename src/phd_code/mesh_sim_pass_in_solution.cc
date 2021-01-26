@@ -421,8 +421,12 @@ MeshTest::Run (std::map<int, int> linkChannelMap, std::vector<std::pair<int, int
 int
 main (int argc, char *argv[])
 {
+  std::map<int, int> linkChannelMap;
+  std::vector<std::pair<int, int>> links;
   CommandLine cmd;
+  cmd.AddValue("links", "The vector of node pairs indicating the links in the network", links);
+  cmd.AddValue("linkChannelMap", "The map of link index to channel number, a solution in SA", linkChannelMap);
   cmd.Parse (argc, argv);
   MeshTest t;
-  return t.Run ();
+  return t.Run (linkChannelMap, links);
 }

@@ -2,8 +2,6 @@
 #include <cmath>
 using std::log;
 
-std::vector<vector<int>> SA_algorithm::_scheduleVec = {};
-
 vector<double> SA_algorithm::_energyVec = {};
 
 SA_algorithm::SA_algorithm(double Ti, int numberOfLinks, int numberOfChannels, std::map<int, int> startSolution, uint32_t Seed, std::string filename)
@@ -90,11 +88,6 @@ void SA_algorithm::Acceptance()
 void SA_algorithm::calcSolutionEnergy() 
 {
     //run simulation, getting SNR value sample, get average SNR, write to file, read it here
-}
-
-vector< vector<int> > SA_algorithm::getScheduleVec()
-{
-    return _scheduleVec;
 }
 
 vector<double> SA_algorithm::getEnergyVec()
