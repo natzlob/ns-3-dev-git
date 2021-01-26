@@ -269,16 +269,12 @@ void MeshTest::GetSetChannelNumber (uint16_t newChannelNumber, uint8_t serverNod
   std::vector<Ptr<NetDevice> > meshInterfaces = mp->GetInterfaces ();
   NS_LOG_UNCOND("number of interfaces per mesh point device = " << meshInterfaces.size());
 
-  //for (std::vector<Ptr<NetDevice> >::iterator j = meshInterfaces.begin(); j != meshInterfaces.end(); ++j)
   Ptr<NetDevice> interface = meshInterfaces[0];
-  //{
-  //Ptr<WifiNetDevice> ifdevice = DynamicCast<WifiNetDevice>(*j);
   Ptr<WifiNetDevice> ifdevice = DynamicCast<WifiNetDevice>(interface);
   Ptr<MeshWifiInterfaceMac> ifmac = DynamicCast<MeshWifiInterfaceMac>(ifdevice->GetMac());
   NS_ASSERT (ifmac != 0);
   ifmac->SwitchFrequencyChannel (newChannelNumber);
   NS_LOG_UNCOND ("New channel: " << ifmac->GetFrequencyChannel ());
-  //}
 
   dev = meshDevices.Get(clientNode);
   mp = DynamicCast<MeshPointDevice>(dev);
@@ -286,15 +282,12 @@ void MeshTest::GetSetChannelNumber (uint16_t newChannelNumber, uint8_t serverNod
   // loop over all interfaces
   meshInterfaces = mp->GetInterfaces ();
 
-  //for (std::vector<Ptr<NetDevice> >::iterator j = meshInterfaces.begin(); j != meshInterfaces.end(); ++j)
   interface = meshInterfaces[1];
-  //{
   ifdevice = DynamicCast<WifiNetDevice>(interface);
   ifmac = DynamicCast<MeshWifiInterfaceMac>(ifdevice->GetMac());
   NS_ASSERT (ifmac != 0); 
   ifmac->SwitchFrequencyChannel (newChannelNumber);
   NS_LOG_UNCOND ("New channel: " << ifmac->GetFrequencyChannel ());
-  //}
 
 }
 double
