@@ -241,7 +241,7 @@ MeshTest::Configure (int argc, char *argv[])
 }
 void MeshTest::PrepareChannels ()
 {
-  spectrumPhy = SpectrumWifiPhyHelper::Default ();
+  spectrumPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
   spectrumChannel = CreateObject<MultiModelSpectrumChannel> ();
 
   Ptr<FriisPropagationLossModel> friisModel
@@ -276,7 +276,7 @@ MeshTest::CreateNodes ()
   interfNode.Create(1);
   // Configure YansWifiChannel
   // YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
-  spectrumPhy = SpectrumWifiPhyHelper::Default ();
+  spectrumPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
   // wifiChannel = YansWifiChannelHelper::Default ();
   //spectrumChannel = SpectrumChannelHelper::Default ();
   spectrumChannel = CreateObject<MultiModelSpectrumChannel> ();

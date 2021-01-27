@@ -34,10 +34,6 @@ MeshSim::CreateNodes ()
   nodes.Create (m_ySize*m_xSize);
   interfNode.Create(1);
   // Configure YansWifiChannel
-  // YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
-  spectrumPhy = SpectrumWifiPhyHelper::Default ();
-  // wifiChannel = YansWifiChannelHelper::Default ();
-  //spectrumChannel = SpectrumChannelHelper::Default ();
   spectrumChannel = CreateObject<MultiModelSpectrumChannel> ();
   Ptr<FriisPropagationLossModel> lossModel
     = CreateObject<FriisPropagationLossModel> ();
@@ -51,6 +47,9 @@ MeshSim::CreateNodes ()
   spectrumPhy.SetChannel (spectrumChannel);
   spectrumPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
   spectrumPhy.Set ("Frequency", UintegerValue(2417));
+  spectrumPhy.Set ("ChannelWidth", UintegerValue (20));
+  spectrumPhy.Set ("TxPowerStart", DoubleValue (10));
+  spectrumPhy.Set ("TxPowerEnd", DoubleValue (10));
   /*
    * Create mesh helper and set stack installer to it
    * Stack installer creates all needed protocols and install them to

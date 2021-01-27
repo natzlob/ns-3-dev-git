@@ -104,10 +104,13 @@ int main (int argc, char *argv[])
         NodeContainer interferingNode;
         interferingNode.Create(1);
 
-        YansWifiPhyHelper nodePhy = YansWifiPhyHelper::Default ();
-        SpectrumWifiPhyHelper spectrumPhy = SpectrumWifiPhyHelper::Default ();
+        YansWifiPhyHelper nodePhy;
+        nodePhy.SetErrorRateModel ("ns3::NistErrorRateModel");
+        SpectrumWifiPhyHelper spectrumPhy;
+        spectrumPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
         Ptr<MultiModelSpectrumChannel> spectrumChannel;
-        YansWifiPhyHelper interfPhy = YansWifiPhyHelper::Default ();
+        YansWifiPhyHelper interfPhy;
+        interfPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
         NetDeviceContainer adhocDevs;
         YansWifiChannelHelper channel;
         if (i == 1)

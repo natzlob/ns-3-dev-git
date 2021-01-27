@@ -79,7 +79,7 @@ int main (int argc, char *argv[])
   Ipv4InterfaceContainer interfaces;
   MeshHelper mesh;
 
-  YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
+  YansWifiPhyHelper wifiPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
   YansWifiChannelHelper wifiChannel;
   wifiChannel.AddPropagationLoss("ns3::LogDistancePropagationLossModel",
                                   "Exponent", DoubleValue (2.5));

@@ -2,7 +2,6 @@
 #include <cmath>
 using std::log;
 
-vector<double> SA_algorithm::_energyVec = {};
 
 SA_algorithm::SA_algorithm(double Ti, int numberOfLinks, int numberOfChannels, std::map<int, int> startSolution, uint32_t Seed, std::string filename)
 {
@@ -11,6 +10,7 @@ SA_algorithm::SA_algorithm(double Ti, int numberOfLinks, int numberOfChannels, s
     _numLinks = numberOfLinks;
     _numChannels = numberOfChannels;
     _currentSolutionMap = startSolution;
+    _energyVec = {};
     // _solnEnergyVec.push_back(*_energyVec.begin());
     solnIter=1;
     _algIter=0;

@@ -100,7 +100,8 @@ main (int argc, char *argv[])
   double rss = -80;  // -dBm
   YansWifiChannelHelper channel = YansWifiChannelHelper::Default ();
   channel.AddPropagationLoss("ns3::FixedRssLossModel","Rss",DoubleValue (rss));
-  YansWifiPhyHelper phy = YansWifiPhyHelper::Default ();
+  YansWifiPhyHelper phy;
+  phy.SetErrorRateModel ("ns3::NistErrorRateModel");
   Ptr<YansWifiChannel> wifichannel = channel.Create();
   phy.SetChannel (wifichannel);
 

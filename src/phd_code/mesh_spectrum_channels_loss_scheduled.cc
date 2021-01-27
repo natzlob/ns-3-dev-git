@@ -242,7 +242,7 @@ MeshTest::CreateNodes ()
   nodes.Create (m_ySize*m_xSize);
   // Configure YansWifiChannel
   // YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
-  spectrumPhy = SpectrumWifiPhyHelper::Default ();
+  spectrumPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
   Ptr<MultiModelSpectrumChannel> spectrumChannel
     = CreateObject<MultiModelSpectrumChannel> ();
   lossModel = CreateObject<FixedRssLossModel> ();

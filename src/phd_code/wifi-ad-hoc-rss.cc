@@ -105,8 +105,10 @@ int main (int argc, char *argv[])
         NodeContainer adhocNodes;
         adhocNodes.Create(2);
 
-        YansWifiPhyHelper nodePhy = YansWifiPhyHelper::Default ();
-        SpectrumWifiPhyHelper spectrumPhy = SpectrumWifiPhyHelper::Default ();
+        YansWifiPhyHelper nodePhy;
+        nodePhy.SetErrorRateModel ("ns3::NistErrorRateModel");
+        SpectrumWifiPhyHelper spectrumPhy;
+        spectrumPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
         Ptr<MultiModelSpectrumChannel> spectrumChannel;
         NetDeviceContainer adhocDevs;
         YansWifiChannelHelper channel;

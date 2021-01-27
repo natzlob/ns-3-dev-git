@@ -29,23 +29,29 @@ int main (int argc, char** argv)
  MRNode->AddDevice (dev1);
 
 
- YansWifiChannelHelper channel0 = YansWifiChannelHelper::Default();
- YansWifiPhyHelper phy0 = YansWifiPhyHelper::Default();  
+ YansWifiChannelHelper channel0;
+ channel0.SetPropagationDelay ("ns3::ConstantSpeedPropagationDelayModel");
+ channel0.AddPropagationLoss ("ns3::LogDistancePropagationLossModel");
+ YansWifiPhyHelper phy0;
+ phy0.SetErrorRateModel ("ns3::NistErrorRateModel");
  phy0.SetChannel (channel.Create ());
- phy0.Set("ChannelNumber", UintegerValue(36))
+ phy0.Set("ChannelNumber", UintegerValue(36));
 
- YansWifiChannelHelper channel1 = YansWifiChannelHelper::Default();
- YansWifiPhyHelper phy1 = YansWifiPhyHelper::Default();  
- phy1.SetChannel (channel.Create ());
- phy1.Set("ChannelNumber", UintegerValue(101))
+ YansWifiChannelHelper channel1;
+ channel1.SetPropagationDelay ("ns3::ConstantSpeedPropagationDelayModel");
+ channel1.AddPropagationLoss ("ns3::LogDistancePropagationLossModel");
+ YansWifiPhyHelper phy1; 
+ phy1.SetErrorRateModel ("ns3::NistErrorRateModel");
+ phy1.SetChannel (channel.Create ()); 
+ phy1.Set("ChannelNumber", UintegerValue(101));
 
  WifiMacHelper mac0; //default is ad-hoc
- mac0.SetType("ns3::AdhocWifiMac")
+ mac0.SetType("ns3::AdhocWifiMac");
 
  WifiMacHelper mac1; //default is ad-hoc
- mac1.SetType("ns3::AdhocWifiMac")
+ mac1.SetType("ns3::AdhocWifiMac");
 
- dev0->SetPhy(phy0)
+ dev0->SetPhy(phy0);
 
  WifiHelper wifi;
  wifi.SetStandard(WIFI_PHY_STANDARD-80211a);

@@ -233,7 +233,7 @@ MeshTest::CreateNodes ()
    */
   nodes.Create (m_ySize*m_xSize);
   interfNode.Create(1);
-  spectrumPhy = SpectrumWifiPhyHelper::Default ();
+  spectrumPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
   spectrumChannel = CreateObject<MultiModelSpectrumChannel> ();
   Ptr<FriisPropagationLossModel> lossModel
     = CreateObject<FriisPropagationLossModel> ();

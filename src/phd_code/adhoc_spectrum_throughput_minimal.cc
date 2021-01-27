@@ -131,7 +131,7 @@ MeshTest::CreateNodes ()
    * Create m_ySize*m_xSize stations to form a grid topology
    */
   nodes.Create (m_ySize*m_xSize);
-  spectrumPhy = SpectrumWifiPhyHelper::Default ();
+  spectrumPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
   spectrumChannel = CreateObject<MultiModelSpectrumChannel> ();
   Ptr<FriisPropagationLossModel> lossModel
     = CreateObject<FriisPropagationLossModel> ();

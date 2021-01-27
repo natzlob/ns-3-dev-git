@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
     SpectrumWifiPhyHelper spectrumPhy;
     nodes.Create (9);
     
-    spectrumPhy = SpectrumWifiPhyHelper::Default ();
+    spectrumPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
     Ptr<MultiModelSpectrumChannel> spectrumChannel
         = CreateObject<MultiModelSpectrumChannel> ();
     Ptr<FixedRssLossModel> lossModel

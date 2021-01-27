@@ -20,7 +20,8 @@ using namespace ns3;
 
 int main (int argc, char *argv[])
 {
-    YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
+    YansWifiPhyHelper wifiPhy;
+    wifiPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
     YansWifiChannelHelper wifiChannel;
     wifiChannel.AddPropagationLoss("ns3::LogDistancePropagationLossModel",
                                   "Exponent", DoubleValue (2.5));

@@ -86,7 +86,8 @@ int main (int argc, char *argv[])
   MeshHelper mesh;
 
   YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
-  YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
+  YansWifiPhyHelper wifiPhy;
+  wifiPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
   wifiPhy.SetChannel (wifiChannel.Create ());
   //meshDevices = wifi.Install (wifiPhy, nodes);
   //tr<MatrixPropagationLossModel> propLoss = CreateObject<MatrixPropagationLossModel> ();

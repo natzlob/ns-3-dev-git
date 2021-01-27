@@ -163,7 +163,8 @@ MeshTest::CreateNodes ()
    */
   nodes.Create (m_ySize*m_xSize);
   // Configure YansWifiChannel
-  YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
+  YansWifiPhyHelper wifiPhy;
+  wifiPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
   YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
   wifiPhy.SetChannel (wifiChannel.Create ());
   /*

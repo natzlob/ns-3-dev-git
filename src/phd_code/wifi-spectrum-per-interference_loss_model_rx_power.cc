@@ -199,8 +199,10 @@ int main (int argc, char *argv[])
       NodeContainer interferingNode;
       interferingNode.Create (1);
 
-      YansWifiPhyHelper phy = YansWifiPhyHelper::Default ();
-      SpectrumWifiPhyHelper spectrumPhy = SpectrumWifiPhyHelper::Default ();
+      YansWifiPhyHelper phy;
+      phy.SetErrorRateModel ("ns3::NistErrorRateModel");
+      SpectrumWifiPhyHelper spectrumPhy;
+      spectrumPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
       Ptr<MultiModelSpectrumChannel> spectrumChannel;
 
       Ptr<FriisPropagationLossModel> friis = CreateObject<FriisPropagationLossModel> ();
