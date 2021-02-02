@@ -59,6 +59,7 @@ MeshSim::CreateNodes ()
   mesh.SetStackInstaller (m_stack);
   mesh.SetSpreadInterfaceChannels (MeshHelper::SPREAD_CHANNELS);
   mesh.SetMacType ("RandomStart", TimeValue (Seconds (m_randomStart)));
+  mesh.SetStandard (WIFI_STANDARD_80211g); //because channels 1-14 are defined
   // Set number of interfaces - default is single-interface mesh point
   mesh.SetNumberOfInterfaces (m_nIfaces);
   // Install protocols and return container if MeshPointDevices

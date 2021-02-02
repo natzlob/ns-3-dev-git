@@ -40,6 +40,20 @@ std::map<int, int> mapLinkChannel(int numLinks, int maxChannel) {
     return solution;
 }
 
+template < typename T > 
+std::vector<std::pair<T,T> > make_unique_pairs(const std::vector<T>& set)
+{
+  std::vector< std::pair<T,T> > result;
+  std::vector< std::reference_wrapper< const T > > seq(set.begin(), set.end());
+
+  std::random_shuffle(std::begin(seq), std::end(seq));
+
+  for (size_t i=0; i<seq.size() -1; i++) {
+    result.emplace_back(set[i], seq[i]);
+  }
+
+  return result;
+}
 
 int 
 main (int argc, char *argv[])
@@ -55,8 +69,11 @@ main (int argc, char *argv[])
   int numLinks = 9;
   int numChannels = 13;
   std::map<int, int> startSolution = mapLinkChannel(numLinks, numChannels);
+  std::vector<int> nodeNums (numLinks);
+  std::iota(nodeNums.begin(), nodeNums.end(), 0);
+  std::vector<std::pair <int, int>> links = make_unique_pairs(nodeNums);
 
-  SimulatedAnnealing SA(initTemp, numLinks, numChannels, startSolution, seed, "SNRaverage.csv");
+  SimulatedAnnealing SA(initTemp, &links, numChannels, startSolution, seed, "SNRaverage.csv");
   cout << "starting solution link => channel \n";
   std::map<int, int>::iterator it;
   for(it=startSolution.begin(); it!=startSolution.end(); ++it){

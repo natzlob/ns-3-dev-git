@@ -226,6 +226,7 @@ MeshTest::CreateNodes ()
   mesh = MeshHelper::Default ();
   mesh.SetStackInstaller (m_stack);
   mesh.SetSpreadInterfaceChannels (MeshHelper::SPREAD_CHANNELS);
+  mesh.SetStandard (WIFI_STANDARD_80211g); //because channels 1-14 are defined
   mesh.SetMacType ("RandomStart", TimeValue (Seconds (m_randomStart)));
   // Set number of interfaces - default is single-interface mesh point
   mesh.SetNumberOfInterfaces (m_nIfaces);

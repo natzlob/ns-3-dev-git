@@ -1,17 +1,19 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 
 #include "simulated-annealing.h"
+#include "ns3/mesh-sim.h"
 #include <cmath>
 using std::log;
 
 
 namespace ns3 {
 
-SimulatedAnnealing::SimulatedAnnealing(double Ti, int numberOfLinks, int numberOfChannels, std::map<int, int> startSolution, uint32_t Seed, std::string filename)
+SimulatedAnnealing::SimulatedAnnealing(double Ti, std::vector<std::pair<int, int>>* links, int numberOfChannels, std::map<int, int> startSolution, uint32_t Seed, std::string filename)
 {
     _initTemp = Ti;
+    std::vector<std::pair<int, int>> _links = *links;
     _currentTemp =_initTemp;
-    _numLinks = numberOfLinks;
+    _numLinks = sizeof(_links);
     _numChannels = numberOfChannels;
     _currentSolutionMap = startSolution;
     _energyVec = {};
@@ -80,7 +82,8 @@ void SimulatedAnnealing::Acceptance()
 void SimulatedAnnealing::calcSolutionEnergy() 
 {
     //run simulation, getting SNR value sample, get average SNR, write to file, read it here
-
+    MeshSim mesh;
+    mesh.Run(_currentSolutionMap, _links);
     ifstream file;
     file.open (_energyFile.c_str());
     double snrAvg;
