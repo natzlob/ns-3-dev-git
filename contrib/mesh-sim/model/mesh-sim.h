@@ -70,13 +70,9 @@ std::vector<std::pair<T,T> > make_unique_pairs(const std::vector<T>& set)
   return result;
 }
 
-std::unordered_map<int, double> channelGainMap = {
-  {1, 10}, {2, 8}, {3, 6}, {4, 4}, {5, 2}
-};
-
-std::unordered_map<int, double> channelThroughputMap = {
-  {1, 0}, {2, 0}, {3, 0}, {4, 0}, {5, 0}, {6, 0}, {7,0}, {8, 0}, {9, 0}, {10, 0}, {11, 0}, {12, 0}, {13, 0}
-};
+// std::unordered_map<int, double> channelGainMap = {
+//   {1, 10}, {2, 8}, {3, 6}, {4, 4}, {5, 2}
+// };
 
 Ptr<SpectrumModel> SpectrumModel2417MHz;
 
@@ -117,6 +113,7 @@ public:
    /// Get current channel number and set to new channel
   void GetSetChannelNumber (uint16_t newChannelNumber, uint8_t serverNode, uint8_t clientNode);
 private:
+  std::unordered_map<int, double> channelThroughputMap;
   int       m_xSize; ///< X size
   int       m_ySize; ///< Y size
   double    m_step; ///< step

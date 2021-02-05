@@ -6,12 +6,14 @@ namespace ns3 {
 
 MeshSim::MeshSim ()
 {
+  std::unordered_map<int, double> channelThroughputMap = {
+  {1, 0}, {2, 0}, {3, 0}, {4, 0}, {5, 0}, {6, 0}, {7,0}, {8, 0}, {9, 0}, {10, 0}, {11, 0}, {12, 0}, {13, 0}};
   m_xSize = 3;
   m_ySize = 3;
   m_step = 100.0;
   m_randomStart = 0.1;
-  m_totalTime = 50.0;
-  m_packetInterval = 0.01;
+  m_totalTime = 10.0;
+  m_packetInterval = 0.1;
   m_packetSize = 1024;
   m_nIfaces = 2;
   m_chan = true;
@@ -51,6 +53,9 @@ MeshSim::CreateNodes ()
   spectrumPhy.SetChannel (spectrumChannel);
   spectrumPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
   spectrumPhy.Set ("Frequency", UintegerValue(2417));
+  spectrumPhy.Set ("ChannelWidth", UintegerValue (20));
+  spectrumPhy.Set ("TxPowerStart", DoubleValue (10));
+  spectrumPhy.Set ("TxPowerEnd", DoubleValue (10));
   /*
    * Create mesh helper and set stack installer to it
    * Stack installer creates all needed protocols and install them to
@@ -213,15 +218,17 @@ MeshSim::Run (std::map<int, int> linkChannelMap, std::vector<std::pair<int, int>
   std::vector<std::pair<int, int>>::iterator linkIter;
   std::cout << "links: \n";
   int linkIndex = 0;
-  for(linkIter=links.begin(); linkIter!=links.end(); ++linkIter) {
-    std::cout << linkIter->first <<  "=> " << linkIter->second << '\n';
-    serverNode = linkIter->first;
-    clientNode = linkIter->second;
-    channel = linkChannelMap[linkIndex];
-    linkIndex++;
-    InstallClientApplication (serverNode, clientNode);
-    Simulator::Schedule(Seconds (0), &MeshSim::GetSetChannelNumber, this, channel, serverNode, clientNode);
-    Simulator::Schedule(Seconds (m_totalTime), &MeshSim::CalculateThroughput, this, channel, serverNode, channelThroughputMap);
+  for (linkIter=links.begin(); linkIter!=links.end(); ++linkIter) {
+      std::cout << linkIter->first <<  "=> " << linkIter->second << '\n';
+      if (linkIter->first!= linkIter->second) {
+        serverNode = linkIter->first;
+        clientNode = linkIter->second;
+        InstallClientApplication (serverNode, clientNode);
+        Simulator::Schedule(Seconds (0), &MeshSim::GetSetChannelNumber, this, channel, serverNode, clientNode);
+        Simulator::Schedule(Seconds (m_totalTime), &MeshSim::CalculateThroughput, this, channel, serverNode, channelThroughputMap);
+      }
+      linkIndex++;
+      channel = linkChannelMap[linkIndex];
   }
 
   Simulator::Stop (Seconds (m_totalTime));
@@ -237,18 +244,23 @@ MeshSim::Run (std::map<int, int> linkChannelMap, std::vector<std::pair<int, int>
   Simulator::Run ();
 
   *stream2->GetStream() << "channel , throughput \n";
+  NS_LOG_UNCOND("channel , throughput \n");
   double current_max = 0.0;
   unsigned int max_channel = 0;
+
   for (int channel=1; channel<=13; channel++) {
-      NS_LOG_UNCOND("channel: " << channel << " , throughput: " << channelThroughputMap[channel]);
+      NS_LOG_UNCOND(channel << " , " << channelThroughputMap[channel]);
       *stream2->GetStream() << channel << " , " << throughput << "\n";
+      std::cout << channel << " , " << throughput << "\n";
       if (channelThroughputMap[channel] > current_max) {
           current_max = channelThroughputMap[channel];
           max_channel = channel;
       }
   }
   NS_LOG_UNCOND ("max throughput: " << current_max << " on channel " << max_channel);
+
   Simulator::Destroy ();
+  NS_LOG_UNCOND ("destroyed simulator \n");
   return 0;
 }
 
