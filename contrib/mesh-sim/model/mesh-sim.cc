@@ -185,7 +185,7 @@ MeshSim::CalculateThroughput (int channelNum, int node, std::unordered_map<int, 
   return throughput;
 }
 int
-MeshSim::Run (std::map<int, int> linkChannelMap, std::vector<std::pair<int, int>> links)
+MeshSim::Run (std::map<int, int>& linkChannelMap, std::vector<std::pair<int, int>>& links)
 {
   g_signalDbmAvg = 0;
   g_noiseDbmAvg = 0;

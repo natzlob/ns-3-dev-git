@@ -109,7 +109,7 @@ public:
    * Run test
    * \returns the test status
    */
-  int Run (std::map<int, int> linkChannelMap, std::vector<std::pair<int, int>> links);
+  int Run (std::map<int, int>& linkChannelMap, std::vector<std::pair<int, int>>& links);
    /// Get current channel number and set to new channel
   void GetSetChannelNumber (uint16_t newChannelNumber, uint8_t serverNode, uint8_t clientNode);
 private:
