@@ -65,8 +65,6 @@ main (int argc, char *argv[])
   cmd.AddValue ("verbose", "Tell application to log if true", verbose);
   cmd.Parse (argc,argv);
 
-  system("python src/phd_code/average.py");
-
   uint32_t seed = seedseq_random_using_clock();
   double initTemp = 100;
   int numLinks = 9;
