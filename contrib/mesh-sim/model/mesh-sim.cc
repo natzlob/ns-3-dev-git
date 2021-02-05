@@ -261,6 +261,7 @@ MeshSim::Run (std::map<int, int>& linkChannelMap, std::vector<std::pair<int, int
 
   Simulator::Destroy ();
   NS_LOG_UNCOND ("destroyed simulator \n");
+  system("python src/phd_code/average.py");
   return 0;
 }
 
