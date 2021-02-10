@@ -115,7 +115,7 @@ MeshSim::InstallServerApplication ()
   UdpServerHelper echoServer (9);
   serverApps = echoServer.Install (nodes);
 
-  NS_LOG_UNCOND("number of server apps in container = " << int(serverApps.GetN()));
+  // NS_LOG_UNCOND("number of server apps in container = " << int(serverApps.GetN()));
 
   serverApps.Start (Seconds (0.0));
   serverApps.Stop (Seconds (m_totalTime));
@@ -128,11 +128,21 @@ MeshSim::InstallClientApplication (int serverNode, int clientNode)
   echoClient.SetAttribute ("Interval", TimeValue (Seconds (m_packetInterval)));
   echoClient.SetAttribute ("PacketSize", UintegerValue (m_packetSize));
   clientApps.Add(echoClient.Install(nodes.Get(clientNode)));
-
-  NS_LOG_UNCOND("number of client apps in container = " << int(clientApps.GetN()));
   
   clientApps.Start (Seconds (0.0));
   clientApps.Stop (Seconds (m_totalTime));
+}
+void
+MeshSim::ConfigureWaveform ()
+{
+  Ptr<SpectrumValue> wgPsd = Create<SpectrumValue> (SpectrumModel2417MHz);
+  *wgPsd = waveformPower / 20e6;
+  waveformGeneratorHelper.SetChannel (spectrumChannel);
+  waveformGeneratorHelper.SetTxPowerSpectralDensity (wgPsd);
+  waveformGeneratorHelper.SetPhyAttribute ("Period", TimeValue (Seconds (0.0007)));
+  waveformGeneratorHelper.SetPhyAttribute ("DutyCycle", DoubleValue (1));
+  waveformGeneratorDevices = waveformGeneratorHelper.Install (interfNode);
+  NS_LOG_UNCOND("configuring waveform\n");
 }
 void MeshSim::GetSetChannelNumber (uint16_t newChannelNumber, uint8_t serverNode, uint8_t clientNode)
 {
@@ -142,14 +152,13 @@ void MeshSim::GetSetChannelNumber (uint16_t newChannelNumber, uint8_t serverNode
   NS_ASSERT (mp != 0);
   // loop over all interfaces
   std::vector<Ptr<NetDevice> > meshInterfaces = mp->GetInterfaces ();
-  NS_LOG_UNCOND("number of interfaces per mesh point device = " << meshInterfaces.size());
 
   Ptr<NetDevice> interface = meshInterfaces[0];
   Ptr<WifiNetDevice> ifdevice = DynamicCast<WifiNetDevice>(interface);
   Ptr<MeshWifiInterfaceMac> ifmac = DynamicCast<MeshWifiInterfaceMac>(ifdevice->GetMac());
   NS_ASSERT (ifmac != 0);
   ifmac->SwitchFrequencyChannel (newChannelNumber);
-  NS_LOG_UNCOND ("New channel: " << ifmac->GetFrequencyChannel ());
+  // NS_LOG_UNCOND ("New channel: " << ifmac->GetFrequencyChannel ());
 
   dev = meshDevices.Get(clientNode);
   mp = DynamicCast<MeshPointDevice>(dev);
@@ -162,22 +171,19 @@ void MeshSim::GetSetChannelNumber (uint16_t newChannelNumber, uint8_t serverNode
   ifmac = DynamicCast<MeshWifiInterfaceMac>(ifdevice->GetMac());
   NS_ASSERT (ifmac != 0); 
   ifmac->SwitchFrequencyChannel (newChannelNumber);
-  NS_LOG_UNCOND ("New channel: " << ifmac->GetFrequencyChannel ());
 }
 double
 MeshSim::CalculateThroughput (int channelNum, int node, std::unordered_map<int, double> &throughputMap)
-{
-  NS_LOG_UNCOND("total packets through before: " << totalPacketsThrough);
-  
+{ 
   currentTotalPackets = 0;
   int totalPacketsPerNode = DynamicCast<UdpServer> (serverApps.Get (node))->GetReceived ();
   currentTotalPackets += totalPacketsPerNode;
-  NS_LOG_UNCOND("currentTotalPackets for node " << int(node) << " = " << totalPacketsPerNode);
+  // NS_LOG_UNCOND("currentTotalPackets for node " << int(node) << " = " << totalPacketsPerNode);
 
   packetsInInterval = currentTotalPackets;
-  NS_LOG_UNCOND("packets in the interval " << packetsInInterval);
+  // NS_LOG_UNCOND("packets in the interval " << packetsInInterval);
   throughput = packetsInInterval * m_packetSize * 8 / (m_totalTime * 1000000.0); //Mbit/s
-  NS_LOG_UNCOND("\n throughput: " << throughput << "\n");
+  // NS_LOG_UNCOND("\n throughput: " << throughput << "\n");
   channelThroughputMap[channelNum] = throughput;
 
   //Config::ConnectWithoutContext ("/NodeList/" + std::to_string(node) + "/DeviceList/0/Phy/MonitorSnifferRx", MakeCallback (&MonitorSniffRx));
@@ -206,19 +212,18 @@ MeshSim::Run (std::map<int, int>& linkChannelMap, std::vector<std::pair<int, int
   std::vector<int> channels (13);
   std::iota(channels.begin(), channels.end(), 1);
   //std::random_shuffle(std::begin(channels), std::end(channels));
-  for (uint8_t i=0; i<channels.size(); i++)
-  {
-    std::cout << "channel number: " << channels[i] << std::endl;
-  }
 
   int serverNode;
   int clientNode;
   uint8_t channel=0;
 
+  Simulator::Schedule (Seconds(0), &WaveformGenerator::Start,
+    waveformGeneratorDevices.Get(0)->GetObject<NonCommunicatingNetDevice>()->GetPhy()->GetObject<WaveformGenerator>());
+
   std::vector<std::pair<int, int>>::iterator linkIter;
   int linkIndex = 0;
   for (linkIter=links.begin(); linkIter!=links.end(); ++linkIter) {
-      std::cout << linkIter->first <<  "=> " << linkIter->second << '\n';
+      // std::cout << linkIter->first <<  "=> " << linkIter->second << '\n';
       channel = linkChannelMap[linkIndex];
       if (linkIter->first!= linkIter->second) {
         serverNode = linkIter->first;
@@ -243,14 +248,14 @@ MeshSim::Run (std::map<int, int>& linkChannelMap, std::vector<std::pair<int, int
   Simulator::Run ();
 
   *stream2->GetStream() << "channel , throughput \n";
-  NS_LOG_UNCOND("channel , throughput \n");
+  // NS_LOG_UNCOND("channel , throughput \n");
   double current_max = 0.0;
   unsigned int max_channel = 0;
 
   for (int channel=1; channel<=13; channel++) {
       NS_LOG_UNCOND(channel << " , " << channelThroughputMap[channel]);
       *stream2->GetStream() << channel << " , " << throughput << "\n";
-      std::cout << channel << " , " << throughput << "\n";
+      // std::cout << channel << " , " << throughput << "\n";
       if (channelThroughputMap[channel] > current_max) {
           current_max = channelThroughputMap[channel];
           max_channel = channel;
@@ -259,7 +264,6 @@ MeshSim::Run (std::map<int, int>& linkChannelMap, std::vector<std::pair<int, int
   NS_LOG_UNCOND ("max throughput: " << current_max << " on channel " << max_channel);
 
   Simulator::Destroy ();
-  NS_LOG_UNCOND ("destroyed simulator \n");
 
   system("python contrib/mesh-sim/examples/average.py");
   return 0;

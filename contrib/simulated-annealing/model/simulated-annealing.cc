@@ -44,7 +44,6 @@ double SimulatedAnnealing::getTemp()
 }
 
 void SimulatedAnnealing::generateNewSolution() {
-    std::cout << "inside generateNewSolution \n";
     // choose one link, assign a new channel to it
     int link = rand() % _numLinks;
     int newChannel = rand() % _numChannels;
@@ -63,7 +62,6 @@ void SimulatedAnnealing::Acceptance()
     {
         acceptpoint = true;
     }
-
     else
     {
         n=dis(gen)/((double)RAND_MAX+1);
@@ -86,7 +84,6 @@ void SimulatedAnnealing::calcSolutionEnergy()
     //run simulation, getting SNR value sample, get average SNR, write to file, read it here
     MeshSim mesh;
     mesh.Run(_currentSolutionMap, _links);
-    std::cout << "after mesh.Run in calcSolutionEnergy" << std::endl;
     ifstream file;
     file.open(_energyFile.c_str(), std::ios::in);
     char ch;
@@ -106,13 +103,12 @@ void SimulatedAnnealing::calcSolutionEnergy()
                 file.seekg(-2, std::ios::cur);    
                 file.get(ch);
             }
-            std::getline(file,lastLine);
-            std::cout << "The last line : " << lastLine << '\n';     
+            std::getline(file,lastLine);  
         }
         snrAvg = std::stod(lastLine);
 
         std::cout << "Result: " << snrAvg << '\n';
-        _energyVec.push_back(snrAvg);
+        _energyVec.push_back(1/snrAvg);
         file.close();
     }
 }

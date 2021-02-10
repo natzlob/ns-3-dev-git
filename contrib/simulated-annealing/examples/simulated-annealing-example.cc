@@ -10,7 +10,6 @@ using namespace ns3;
 double CalcTotalCost()
 {
     double result = system("/usr/bin/python average.py");
-    std::cout << "average from python script = " << std::to_string(result) << std::endl;
     return result;
 }
 
@@ -70,6 +69,7 @@ main (int argc, char *argv[])
   double initTemp = 100.00;
   int numLinks = 9;
   int numChannels = 13;
+  uint16_t maxIterations = 10000;
 
   std::vector<int> channels (numChannels);
   std::iota(channels.begin(), channels.end(), 1);
@@ -80,24 +80,31 @@ main (int argc, char *argv[])
   std::vector<int> nodeNums (numLinks);
   std::iota(nodeNums.begin(), nodeNums.end(), 0);
   std::vector<std::pair <int, int>> links = make_unique_pairs(nodeNums);
-  std::cout << "links.size() in main code = " << links.size() << std::endl;
 
+  // std::cout << "starting solution link => channel \n";
+  // std::map<int, int>::iterator it;
+  // for(it=startSolution.begin(); it!=startSolution.end(); ++it){
+  //   std::cout << it->first << " => " << it->second << '\n';
+  // }
   SimulatedAnnealing SA(initTemp, links, numChannels, startSolution, seed, "SNRaverage.csv");
-  std::cout << "starting solution link => channel \n";
-  std::map<int, int>::iterator it;
-  for(it=startSolution.begin(); it!=startSolution.end(); ++it){
-    std::cout << it->first << " => " << it->second << '\n';
-  }
+
   SA.setCurrentTemp();
-  std::cout << "Current temp = " << std::to_string(SA.getTemp()) << std::endl;
+  // std::cout << "Current temp = " << std::to_string(SA.getTemp()) << std::endl;
   SA.calcSolutionEnergy();
   SA.generateNewSolution();
   std::map<int, int> newSolution = *SA.getCurrentSolution();
-  for(it=newSolution.begin(); it!=newSolution.end(); ++it){
-    std::cout << it->first << " => " << it->second << '\n';
-  }
+  // for(it=newSolution.begin(); it!=newSolution.end(); ++it){
+  //   std::cout << it->first << " => " << it->second << '\n';
+  // }
   SA.calcSolutionEnergy();
   SA.Acceptance();
+
+  while ( (SA._algIter < maxIterations) && SA.getTemp()>2 ) {
+    SA.setCurrentTemp();
+    SA.generateNewSolution();
+    SA.calcSolutionEnergy();
+    SA.Acceptance();
+  }
 
 
   // Simulator::Run ();
