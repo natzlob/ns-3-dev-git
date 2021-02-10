@@ -3,17 +3,18 @@
 #include "simulated-annealing.h"
 #include "ns3/mesh-sim.h"
 #include <cmath>
+#include <regex>
 using std::log;
 using std::ifstream;
 
 namespace ns3 {
 
-SimulatedAnnealing::SimulatedAnnealing(double Ti, std::vector<std::pair<int, int>>* links, int numberOfChannels, std::map<int, int> startSolution, uint32_t Seed, std::string filename)
+SimulatedAnnealing::SimulatedAnnealing(double Ti, std::vector<std::pair<int, int>> links, int numberOfChannels, std::map<int, int> startSolution, uint32_t Seed, std::string filename)
 {
     _initTemp = Ti;
-    std::vector<std::pair<int, int>> _links = *links;
+    _links = links;
     _currentTemp =_initTemp;
-    _numLinks = sizeof(_links);
+    _numLinks = _links.size();
     _numChannels = numberOfChannels;
     _currentSolutionMap = startSolution;
     _energyVec = {};
@@ -24,7 +25,7 @@ SimulatedAnnealing::SimulatedAnnealing(double Ti, std::vector<std::pair<int, int
     currentBest = 0;
     avgdE = 0;
     _seed = Seed;
-    std::default_random_engine gen(_seed);
+    gen.seed(_seed);
     std::uniform_int_distribution<int> dis{1,RAND_MAX};
   
 //    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
@@ -43,6 +44,7 @@ double SimulatedAnnealing::getTemp()
 }
 
 void SimulatedAnnealing::generateNewSolution() {
+    std::cout << "inside generateNewSolution \n";
     // choose one link, assign a new channel to it
     int link = rand() % _numLinks;
     int newChannel = rand() % _numChannels;
@@ -52,7 +54,7 @@ void SimulatedAnnealing::generateNewSolution() {
 void SimulatedAnnealing::Acceptance()
 {
     bool acceptpoint;
-    double dE=_solnEnergyVec.at(_solnEnergyVec.size()-1) - _solnEnergyVec.at(_solnEnergyVec.size()-2);
+    double dE=_energyVec.at(_energyVec.size()-1) - _energyVec.at(_energyVec.size()-2);
     avgdE=(avgdE+abs(dE))/2;
     double n=0;
     double h=0;
@@ -71,9 +73,9 @@ void SimulatedAnnealing::Acceptance()
         else
             acceptpoint = false;
     }
-    if ((acceptpoint==false)&&(_solnEnergyVec.size()>2))
+    if ((acceptpoint==false)&&(_energyVec.size()>2))
     {
-            _solnEnergyVec.pop_back();
+            _energyVec.pop_back();
             //_solnVec.pop_back();
     }
     _algIter++;
@@ -84,33 +86,32 @@ void SimulatedAnnealing::calcSolutionEnergy()
     //run simulation, getting SNR value sample, get average SNR, write to file, read it here
     MeshSim mesh;
     mesh.Run(_currentSolutionMap, _links);
+    std::cout << "after mesh.Run in calcSolutionEnergy" << std::endl;
     ifstream file;
-    file.open (_energyFile.c_str());
+    file.open(_energyFile.c_str(), std::ios::in);
+    char ch;
+    std::string lastLine;
     double snrAvg;
     if (file.is_open())
     {
         file.seekg(-1, std::ios_base::end);
-        bool keepLooping = true;
-        while(keepLooping) {
-            char ch;
-            file.get(ch);                            // Get current byte's data
-
-            if((int)file.tellg() <= 1) {             // If the data was at or before the 0th byte
-                file.seekg(0);                       // The first line is the last line
-                keepLooping = false;                // So stop there
+        file.get(ch);                         // get next char at loc 66
+        if (ch == '\n')
+        {
+            file.seekg(-2, std::ios::cur);    // move to loc 64 for get() to read loc 65 
+            file.seekg(-1, std::ios::cur);    // move to loc 63 to avoid reading loc 65
+            file.get(ch);                     // get the char at loc 64 ('5')
+            while(ch != '\n')                   // read each char backward till the next '\n'
+            {
+                file.seekg(-2, std::ios::cur);    
+                file.get(ch);
             }
-            else if(ch == '\n') {                   // If the data was a newline
-                keepLooping = false;                // Stop at the current position.
-            }
-            else {                                  // If the data was neither a newline nor at the 0 byte
-                file.seekg(-2, std::ios_base::cur);        // Move to the front of that data, then to the front of the data before it
-            }
+            std::getline(file,lastLine);
+            std::cout << "The last line : " << lastLine << '\n';     
         }
-
-        std::string lastLine;            
-        getline(file,lastLine);                      // Read the current line
-        std::cout << "Result: " << lastLine << '\n'; 
         snrAvg = std::stod(lastLine);
+
+        std::cout << "Result: " << snrAvg << '\n';
         _energyVec.push_back(snrAvg);
         file.close();
     }

@@ -18,7 +18,7 @@ namespace ns3 {
 class SimulatedAnnealing
 {
 public:
-    SimulatedAnnealing(double Ti, std::vector<std::pair<int, int>> *links, int numberOfChannels, std::map<int, int> startSolution, uint32_t Seed, std::string filename);
+    SimulatedAnnealing(double Ti, std::vector<std::pair<int, int>> links, int numberOfChannels, std::map<int, int> startSolution, uint32_t Seed, std::string filename);
     void generateNewSolution();
     void setCurrentTemp();
     void Acceptance();
@@ -35,14 +35,13 @@ public:
     unsigned int _algIter;
     int currentBest=0;
     double avgdE;
-    std::default_random_engine gen;
-    std::uniform_int_distribution<int> dis{};
+    // std::default_random_engine gen;
+    // std::uniform_int_distribution<int> dis{};
 
 private:
     int _numLinks;
     int _numChannels;
     std::vector<std::pair<int, int>> _links;
-    int _numberOfLinks;
     std::map<int, int> _currentSolutionMap;
     std::string _energyFile;
     std::vector< double > _solnEnergyVec;
@@ -52,6 +51,8 @@ private:
     double _currentEnergy;
     double _newEnergy;
     int32_t _seed;
+    std::default_random_engine gen;
+    std::uniform_int_distribution<int> dis;
 };
 
 }

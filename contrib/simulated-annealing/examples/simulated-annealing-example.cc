@@ -25,17 +25,18 @@ uint32_t seedseq_random_using_clock()
     return out;
 }
 
-std::map<int, int> mapLinkChannel(int numLinks, int maxChannel) {
+std::map<int, int> mapLinkChannel(int numLinks, std::vector<int> channels) {
     std::map<int, int> solution;
-    int channel = 1;
+    int channelIndex = 0;
+    int maxChannel = channels.size()-1;
 
     for (int n=0; n<numLinks; n++) {
-        solution.insert({ n, channel });
-        if (channel < maxChannel) {
-            channel ++;
+        solution.insert({ n, channels[channelIndex] });
+        if (channelIndex < maxChannel) {
+            channelIndex ++;
         }
         else {
-            channel=1;
+            channelIndex=0;
         }
     }
     return solution;
@@ -66,15 +67,22 @@ main (int argc, char *argv[])
   cmd.Parse (argc,argv);
 
   uint32_t seed = seedseq_random_using_clock();
-  double initTemp = 100;
+  double initTemp = 100.00;
   int numLinks = 9;
   int numChannels = 13;
-  std::map<int, int> startSolution = mapLinkChannel(numLinks, numChannels);
+
+  std::vector<int> channels (numChannels);
+  std::iota(channels.begin(), channels.end(), 1);
+  std::random_shuffle(std::begin(channels), std::end(channels));
+
+  std::map<int, int> startSolution = mapLinkChannel(numLinks, channels);
+
   std::vector<int> nodeNums (numLinks);
   std::iota(nodeNums.begin(), nodeNums.end(), 0);
   std::vector<std::pair <int, int>> links = make_unique_pairs(nodeNums);
+  std::cout << "links.size() in main code = " << links.size() << std::endl;
 
-  SimulatedAnnealing SA(initTemp, &links, numChannels, startSolution, seed, "SNRaverage.csv");
+  SimulatedAnnealing SA(initTemp, links, numChannels, startSolution, seed, "SNRaverage.csv");
   std::cout << "starting solution link => channel \n";
   std::map<int, int>::iterator it;
   for(it=startSolution.begin(); it!=startSolution.end(); ++it){
@@ -89,7 +97,7 @@ main (int argc, char *argv[])
     std::cout << it->first << " => " << it->second << '\n';
   }
   SA.calcSolutionEnergy();
-  //SA.Acceptance();
+  SA.Acceptance();
 
 
   // Simulator::Run ();

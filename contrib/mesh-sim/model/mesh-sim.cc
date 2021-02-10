@@ -12,8 +12,8 @@ MeshSim::MeshSim ()
   m_ySize = 3;
   m_step = 100.0;
   m_randomStart = 0.1;
-  m_totalTime = 10.0;
-  m_packetInterval = 0.1;
+  m_totalTime = 50.0;
+  m_packetInterval = 0.01;
   m_packetSize = 1024;
   m_nIfaces = 2;
   m_chan = true;
@@ -191,7 +191,7 @@ MeshSim::Run (std::map<int, int>& linkChannelMap, std::vector<std::pair<int, int
   g_noiseDbmAvg = 0;
   g_samples = 0;
   AsciiTraceHelper asciiTraceHelper;
-  Ptr<OutputStreamWrapper> stream = asciiTraceHelper.CreateFileStream("SNRtrace_3.tr");
+  Ptr<OutputStreamWrapper> stream = asciiTraceHelper.CreateFileStream("SNRtrace.tr");
   Ptr<OutputStreamWrapper> stream2 = asciiTraceHelper.CreateFileStream("Channel-throughput_without_interference.txt");
 
   PacketMetadata::Enable ();
@@ -216,10 +216,10 @@ MeshSim::Run (std::map<int, int>& linkChannelMap, std::vector<std::pair<int, int
   uint8_t channel=0;
 
   std::vector<std::pair<int, int>>::iterator linkIter;
-  std::cout << "links: \n";
   int linkIndex = 0;
   for (linkIter=links.begin(); linkIter!=links.end(); ++linkIter) {
       std::cout << linkIter->first <<  "=> " << linkIter->second << '\n';
+      channel = linkChannelMap[linkIndex];
       if (linkIter->first!= linkIter->second) {
         serverNode = linkIter->first;
         clientNode = linkIter->second;
@@ -228,7 +228,6 @@ MeshSim::Run (std::map<int, int>& linkChannelMap, std::vector<std::pair<int, int
         Simulator::Schedule(Seconds (m_totalTime), &MeshSim::CalculateThroughput, this, channel, serverNode, channelThroughputMap);
       }
       linkIndex++;
-      channel = linkChannelMap[linkIndex];
   }
 
   Simulator::Stop (Seconds (m_totalTime));
@@ -261,7 +260,8 @@ MeshSim::Run (std::map<int, int>& linkChannelMap, std::vector<std::pair<int, int
 
   Simulator::Destroy ();
   NS_LOG_UNCOND ("destroyed simulator \n");
-  system("python src/phd_code/average.py");
+
+  system("python contrib/mesh-sim/examples/average.py");
   return 0;
 }
 
