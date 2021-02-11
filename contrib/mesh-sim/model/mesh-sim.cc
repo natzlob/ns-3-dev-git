@@ -12,7 +12,7 @@ MeshSim::MeshSim ()
   m_ySize = 3;
   m_step = 100.0;
   m_randomStart = 0.1;
-  m_totalTime = 50.0;
+  m_totalTime = 20.0;
   m_packetInterval = 0.01;
   m_packetSize = 1024;
   m_nIfaces = 2;
@@ -202,6 +202,7 @@ MeshSim::Run (std::map<int, int>& linkChannelMap, std::vector<std::pair<int, int
 
   PacketMetadata::Enable ();
   CreateNodes ();
+  ConfigureWaveform();
   InstallInternetStack ();
   InstallServerApplication ();
 
