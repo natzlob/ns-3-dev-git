@@ -6,13 +6,6 @@
 using namespace ns3;
 
 
-//function to calculate energy - to be used later
-double CalcTotalCost()
-{
-    double result = system("/usr/bin/python average.py");
-    return result;
-}
-
 uint32_t seedseq_random_using_clock()
 {
     uint64_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();

@@ -20,7 +20,7 @@ MeshSim::MeshSim ()
   m_pcap = false;
   m_ascii = true;
   rss = -50;
-  waveformPower = 0.1;
+  waveformPower = 0.2;
   throughput = 0;
   totalPacketsThrough = 0;
   m_stack = "ns3::Dot11sStack";
@@ -43,7 +43,7 @@ MeshSim::CreateNodes ()
   spectrumChannel = CreateObject<MultiModelSpectrumChannel> ();
   Ptr<FriisPropagationLossModel> lossModel
     = CreateObject<FriisPropagationLossModel> ();
-  lossModel->SetFrequency (2.417e9);
+  lossModel->SetFrequency (5.180e9);
   spectrumChannel->AddPropagationLossModel (lossModel);
 
   Ptr<ConstantSpeedPropagationDelayModel> delayModel
@@ -52,7 +52,7 @@ MeshSim::CreateNodes ()
 
   spectrumPhy.SetChannel (spectrumChannel);
   spectrumPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
-  spectrumPhy.Set ("Frequency", UintegerValue(2417));
+  spectrumPhy.Set ("Frequency", UintegerValue(5180));
   spectrumPhy.Set ("ChannelWidth", UintegerValue (20));
   spectrumPhy.Set ("TxPowerStart", DoubleValue (10));
   spectrumPhy.Set ("TxPowerEnd", DoubleValue (10));
@@ -135,7 +135,7 @@ MeshSim::InstallClientApplication (int serverNode, int clientNode)
 void
 MeshSim::ConfigureWaveform ()
 {
-  Ptr<SpectrumValue> wgPsd = Create<SpectrumValue> (SpectrumModel2417MHz);
+  Ptr<SpectrumValue> wgPsd = Create<SpectrumValue> (SpectrumModel5180MHz);
   *wgPsd = waveformPower / 20e6;
   waveformGeneratorHelper.SetChannel (spectrumChannel);
   waveformGeneratorHelper.SetTxPowerSpectralDensity (wgPsd);

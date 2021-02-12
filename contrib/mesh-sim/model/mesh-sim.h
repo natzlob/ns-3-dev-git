@@ -74,23 +74,23 @@ std::vector<std::pair<T,T> > make_unique_pairs(const std::vector<T>& set)
 //   {1, 10}, {2, 8}, {3, 6}, {4, 4}, {5, 2}
 // };
 
-Ptr<SpectrumModel> SpectrumModel2417MHz;
+Ptr<SpectrumModel> SpectrumModel5180MHz;
 
-class static_SpectrumModel2417MHz_initializer
+class static_SpectrumModel5180MHz_initializer
 {
 public:
-    static_SpectrumModel2417MHz_initializer ()
+    static_SpectrumModel5180MHz_initializer ()
     {
         BandInfo bandInfo;
-        bandInfo.fc = 2417e6;
-        bandInfo.fl = 2417e6 - 10e6;
-        bandInfo.fh = 2417e6 + 10e6;
+        bandInfo.fc = 5180e6;
+        bandInfo.fl = 5180e6 - 10e6;
+        bandInfo.fh = 5180e6 + 10e6;
         Bands bands;
         bands.push_back (bandInfo);
 
-        SpectrumModel2417MHz = Create<SpectrumModel> (bands);
+        SpectrumModel5180MHz = Create<SpectrumModel> (bands);
     }
-} static_SpectrumModel2417MHz_initializer_inst;
+} static_SpectrumModel5180MHz_initializer_inst;
 
 
 class MeshSim : public Object
