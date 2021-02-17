@@ -164,7 +164,8 @@ WifiPhy::ChannelToFrequencyWidthMap WifiPhy::m_channelToFrequencyWidth =
   { std::make_pair (24, WIFI_PHY_STANDARD_TVWS_8MHZ), std::make_pair (498, 8) },
   { std::make_pair (25, WIFI_PHY_STANDARD_TVWS_8MHZ), std::make_pair (506, 8) },
   { std::make_pair (26, WIFI_PHY_STANDARD_TVWS_8MHZ), std::make_pair (514, 8) },
-  { std::make_pair (27, WIFI_PHY_STANDARD_TVWS_8MHZ), std::make_pair (522, 8) }
+  { std::make_pair (27, WIFI_PHY_STANDARD_TVWS_8MHZ), std::make_pair (522, 8) },
+  { std::make_pair (28, WIFI_PHY_STANDARD_TVWS_8MHZ), std::make_pair (530, 8) }
 };
 
 TypeId
@@ -879,6 +880,12 @@ WifiPhy::ConfigureDefaultsForStandard (WifiPhyStandard standard)
       // Channel number should be aligned by SetFrequency () to 36
       NS_ASSERT (GetChannelNumber () == 36);
       break;
+    case WIFI_PHY_STANDARD_TVWS_8MHZ:
+      SetChannelWidth (8);
+      SetFrequency (490);
+      // Channel number should be aligned by SetFrequency () to 23
+      NS_ASSERT (GetChannelNumber () == 23);
+      break;
     case WIFI_PHY_STANDARD_80211b:
       SetChannelWidth (22);
       SetFrequency (2412);
@@ -1112,6 +1119,29 @@ WifiPhy::ConfigureHolland (void)
   m_deviceRateSet.push_back (WifiPhy::GetOfdmRate12Mbps ());
   m_deviceRateSet.push_back (WifiPhy::GetOfdmRate18Mbps ());
   m_deviceRateSet.push_back (WifiPhy::GetOfdmRate36Mbps ());
+  m_deviceRateSet.push_back (WifiPhy::GetOfdmRate54Mbps ());
+}
+
+void
+WifiPhy::ConfigureTVWS (void)
+{
+  NS_LOG_FUNCTION (this);
+
+  // See Table 17-21 "OFDM PHY characteristics" of 802.11-2016
+  SetSifs (MicroSeconds (16));
+  SetSlot (MicroSeconds (9));
+  SetPifs (GetSifs () + GetSlot ());
+  // See Table 10-5 "Determination of the EstimatedAckTxTime based on properties
+  // of the PPDU causing the EIFS" of 802.11-2016
+  m_ackTxTime = MicroSeconds (44);
+
+  m_deviceRateSet.push_back (WifiPhy::GetOfdmRate6Mbps ());
+  m_deviceRateSet.push_back (WifiPhy::GetOfdmRate9Mbps ());
+  m_deviceRateSet.push_back (WifiPhy::GetOfdmRate12Mbps ());
+  m_deviceRateSet.push_back (WifiPhy::GetOfdmRate18Mbps ());
+  m_deviceRateSet.push_back (WifiPhy::GetOfdmRate24Mbps ());
+  m_deviceRateSet.push_back (WifiPhy::GetOfdmRate36Mbps ());
+  m_deviceRateSet.push_back (WifiPhy::GetOfdmRate48Mbps ());
   m_deviceRateSet.push_back (WifiPhy::GetOfdmRate54Mbps ());
 }
 
@@ -1397,6 +1427,9 @@ WifiPhy::ConfigureStandard (WifiPhyStandard standard)
     case WIFI_PHY_STANDARD_80211a:
       Configure80211a ();
       break;
+    case WIFI_PHY_STANDARD_TVWS_8MHZ:
+      ConfigureTVWS ();
+      break;
     case WIFI_PHY_STANDARD_80211b:
       Configure80211b ();
       break;
@@ -1503,7 +1536,7 @@ void
 WifiPhy::SetChannelWidth (uint16_t channelWidth)
 {
   NS_LOG_FUNCTION (this << channelWidth);
-  NS_ASSERT_MSG (channelWidth == 5 || channelWidth == 10 || channelWidth == 20 || channelWidth == 22 || channelWidth == 40 || channelWidth == 80 || channelWidth == 160, "wrong channel width value");
+  NS_ASSERT_MSG (channelWidth == 5 || channelWidth == 10 || channelWidth == 20 || channelWidth == 22 || channelWidth == 40 || channelWidth == 80 || channelWidth == 160 || channelWidth == 8, "wrong channel width value");
   bool changed = (m_channelWidth != channelWidth);
   m_channelWidth = channelWidth;
   AddSupportedChannelWidth (channelWidth);

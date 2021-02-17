@@ -1810,6 +1810,11 @@ private:
    * supported rates for 802.11a standard.
    */
   void Configure80211a (void);
+    /**
+   * Configure WifiPhy with appropriate channel frequency and
+   * supported rates for TVWS, based on 802.11a standard.
+   */
+  void ConfigureTVWS (void);
   /**
    * Configure WifiPhy with appropriate channel frequency and
    * supported rates for 802.11b standard.

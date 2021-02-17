@@ -58,7 +58,7 @@ enum WifiPhyStandard
   /** Unspecified */
   WIFI_PHY_STANDARD_UNSPECIFIED,
 
-  WIFI_PHY_STANDARD_TWVS_8MHZ,
+  WIFI_PHY_STANDARD_TVWS_8MHZ,
 };
 
 } //namespace ns3

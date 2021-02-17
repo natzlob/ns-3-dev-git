@@ -362,6 +362,9 @@ SpectrumWifiPhy::GetBandBandwidth (void) const
       // Use OFDM subcarrier width of 78.125 KHz as band granularity
       bandBandwidth = 78125;
       break;
+    case WIFI_PHY_STANDARD_TVWS_8MHZ:
+      bandBandwidth = 125000;
+      break;
     default:
       NS_FATAL_ERROR ("Standard unknown: " << GetStandard ());
       break;
