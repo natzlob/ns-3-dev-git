@@ -56,7 +56,9 @@ enum WifiPhyStandard
   /** HE PHY for the 5 GHz band (clause 26) */
   WIFI_PHY_STANDARD_80211ax_5GHZ,
   /** Unspecified */
-  WIFI_PHY_STANDARD_UNSPECIFIED
+  WIFI_PHY_STANDARD_UNSPECIFIED,
+
+  WIFI_PHY_STANDARD_TWVS_8MHZ,
 };
 
 } //namespace ns3
