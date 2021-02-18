@@ -58,8 +58,8 @@ main (int argc, char *argv[])
   links = make_unique_pairs(nodeNums);
   linkChannelMap = mapLinkChannel(links.size(), channels);
   
-  MeshSim t;
-  return t.Run (linkChannelMap, links);
+  MeshSim t(channels);
+  return t.Run (linkChannelMap, links, channels);
 
 }
 

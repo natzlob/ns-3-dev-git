@@ -82,8 +82,8 @@ void SimulatedAnnealing::Acceptance()
 void SimulatedAnnealing::calcSolutionEnergy() 
 {
     //run simulation, getting SNR value sample, get average SNR, write to file, read it here
-    MeshSim mesh;
-    mesh.Run(_currentSolutionMap, _links);
+    MeshSim mesh({});
+    mesh.Run(_currentSolutionMap, _links, {});
     ifstream file;
     file.open(_energyFile.c_str(), std::ios::in);
     char ch;
