@@ -28,10 +28,16 @@
 #include "wifi-utils.h"
 #include "wifi-ppdu.h"
 #include "wifi-psdu.h"
+#include "ns3/trace-helper.h"
+
+#include <sstream>
+#include <fstream>
 
 namespace ns3 {
 
 NS_LOG_COMPONENT_DEFINE ("InterferenceHelper");
+AsciiTraceHelper asciiTraceHelper;
+  Ptr<OutputStreamWrapper> stream = asciiTraceHelper.CreateFileStream("SignalNoiseInterference_5G.csv");
 
 /****************************************************************
  *       PHY event class
@@ -250,6 +256,8 @@ InterferenceHelper::CalculateSnr (double signal, double noiseInterference, WifiT
   double noise = noiseFloor + noiseInterference;
   double snr = signal / noise; //linear scale
   NS_LOG_DEBUG ("bandwidth(MHz)=" << channelWidth << ", signal(W)= " << signal << ", noise(W)=" << noiseFloor << ", interference(W)=" << noiseInterference << ", snr=" << RatioToDb(snr) << "dB");
+  *stream->GetStream ()  << signal << ", " << noiseFloor << ", " << noiseInterference << ", " << RatioToDb(snr) << "\n";
+
   double gain = 1;
   if (m_numRxAntennas > txVector.GetNss ())
     {
