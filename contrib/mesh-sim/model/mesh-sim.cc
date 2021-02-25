@@ -6,9 +6,12 @@ namespace ns3 {
 
 MeshSim::MeshSim (std::vector<int> channels)
 {
-  std::unordered_map<int, double> channelThroughputMap;
-  for (int channelNum = *channels.begin(); channelNum != *channels.end(); ++channelNum) {
-    channelThroughputMap[channelNum] = 0;
+  std::unordered_map<int, double> channelThroughputMap = {};
+  _channels = channels;
+  std::vector<int>::iterator it;
+  for (it = _channels.begin(); it != _channels.end(); ++it) {
+    channelThroughputMap[*it] = 0;
+    // std::cout << "index = " << *it << std::endl;
   }
   m_xSize = 3;
   m_ySize = 3;
@@ -22,7 +25,7 @@ MeshSim::MeshSim (std::vector<int> channels)
   m_pcap = false;
   m_ascii = true;
   rss = -50;
-  waveformPower = 0.0;
+  waveformPower = 0.2;
   throughput = 0;
   totalPacketsThrough = 0;
   m_stack = "ns3::Dot11sStack";
@@ -193,13 +196,13 @@ MeshSim::CalculateThroughput (int channelNum, int node, std::unordered_map<int, 
   return throughput;
 }
 int
-MeshSim::Run (std::map<int, int>& linkChannelMap, std::vector<std::pair<int, int>>& links, std::vector<int> channels)
+MeshSim::Run (std::map<int, int>& linkChannelMap, std::vector<std::pair<int, int>>& links)
 {
   g_signalDbmAvg = 0;
   g_noiseDbmAvg = 0;
   g_samples = 0;
   AsciiTraceHelper asciiTraceHelper;
-  Ptr<OutputStreamWrapper> stream = asciiTraceHelper.CreateFileStream("SNRtrace.tr");
+  // Ptr<OutputStreamWrapper> stream = asciiTraceHelper.CreateFileStream("SNRtrace.tr");
   // Ptr<OutputStreamWrapper> stream2 = asciiTraceHelper.CreateFileStream("Channel-throughput_without_interference.txt");
 
   PacketMetadata::Enable ();
@@ -225,40 +228,40 @@ MeshSim::Run (std::map<int, int>& linkChannelMap, std::vector<std::pair<int, int
         clientNode = linkIter->second;
         InstallClientApplication (serverNode, clientNode);
         Simulator::Schedule(Seconds (0), &MeshSim::GetSetChannelNumber, this, channel, serverNode, clientNode);
-        Simulator::Schedule(Seconds (m_totalTime), &MeshSim::CalculateThroughput, this, channel, serverNode, channelThroughputMap);
+        // Simulator::Schedule(Seconds (m_totalTime), &MeshSim::CalculateThroughput, this, channel, serverNode, channelThroughputMap);
       }
       linkIndex++;
   }
 
   Simulator::Stop (Seconds (m_totalTime));
 
-  for (uint8_t node_num=0; node_num<m_xSize*m_ySize; node_num++) {
-    for (uint8_t interf=0; interf<m_nIfaces; interf++){
-      Config::ConnectWithoutContext (
-        "/NodeList/" + std::to_string(node_num) + "/DeviceList/" + std::to_string(interf) + "/Phy/MonitorSnifferRx",
-        MakeBoundCallback (&MonitorSniffRx, stream, std::to_string(node_num)+std::to_string(interf))
-      );
-    }
-  }
+  // for (uint8_t node_num=0; node_num<m_xSize*m_ySize; node_num++) {
+  //   for (uint8_t interf=0; interf<m_nIfaces; interf++){
+  //     Config::ConnectWithoutContext (
+  //       "/NodeList/" + std::to_string(node_num) + "/DeviceList/" + std::to_string(interf) + "/Phy/MonitorSnifferRx",
+  //       MakeBoundCallback (&MonitorSniffRx, stream, std::to_string(node_num)+std::to_string(interf))
+  //     );
+  //   }
+  // }
   Simulator::Run ();
 
-  NS_LOG_UNCOND("channel , throughput \n");
-  double current_max = 0.0;
-  unsigned int max_channel = 0;
+  // NS_LOG_UNCOND("channel , throughput \n");
+  // double current_max = 0.0;
+  // unsigned int max_channel = 0;
 
-  for (int channel=1; channel<=13; channel++) {
-      NS_LOG_UNCOND(channel << " , " << channelThroughputMap[channel]);
-      std::cout << channel << " , " << throughput << "\n";
-      if (channelThroughputMap[channel] > current_max) {
-          current_max = channelThroughputMap[channel];
-          max_channel = channel;
-      }
-  }
-  NS_LOG_UNCOND ("max throughput: " << current_max << " on channel " << max_channel);
+  // std::vector<int>::iterator it;
+  // for (it = _channels.begin(); it != _channels.end(); ++it) {
+  //     NS_LOG_UNCOND(*it << " , " << channelThroughputMap[*it]);
+  //     if (channelThroughputMap[*it] > current_max) {
+  //         current_max = channelThroughputMap[*it];
+  //         max_channel = *it;
+  //     }
+  // }
+  // NS_LOG_UNCOND ("max throughput: " << current_max << " on channel " << max_channel);
 
   Simulator::Destroy ();
 
-  system("python contrib/mesh-sim/examples/average.py");
+  system("python src/phd_code/SINR_average.py");
   return 0;
 }
 

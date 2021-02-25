@@ -18,7 +18,9 @@ SimulatedAnnealing::SimulatedAnnealing(double Ti, std::vector<std::pair<int, int
     _numChannels = numberOfChannels;
     _currentSolutionMap = startSolution;
     _energyVec = {};
-    _energyFile = filename;
+    _solnVec.push_back(_currentSolutionMap);
+    _sinrAvgFilename = filename;
+    _solutionFile.open("acceptedSolutions.csv", std::ios_base::app);
     // _solnEnergyVec.push_back(*_energyVec.begin());
     solnIter = 1;
     _algIter = 0;
@@ -48,6 +50,11 @@ void SimulatedAnnealing::generateNewSolution() {
     int link = rand() % _numLinks;
     int newChannel = rand() % _numChannels;
     _currentSolutionMap[link] = newChannel;
+    _solnVec.push_back(_currentSolutionMap);
+    std::map<int, int>::iterator mapit;
+    for (mapit=_currentSolutionMap.begin(); mapit!=_currentSolutionMap.end(); ++mapit) {
+        std::cout << mapit->first << " => " << mapit->second << std::endl;
+    }
 }
 
 void SimulatedAnnealing::Acceptance()
@@ -76,6 +83,7 @@ void SimulatedAnnealing::Acceptance()
             _energyVec.pop_back();
             //_solnVec.pop_back();
     }
+    _solutionFile << _energyVec.back();
     _algIter++;
 }
 
@@ -83,9 +91,9 @@ void SimulatedAnnealing::calcSolutionEnergy()
 {
     //run simulation, getting SNR value sample, get average SNR, write to file, read it here
     MeshSim mesh({});
-    mesh.Run(_currentSolutionMap, _links, {});
+    mesh.Run(_currentSolutionMap, _links);
     ifstream file;
-    file.open(_energyFile.c_str(), std::ios::in);
+    file.open(_sinrAvgFilename.c_str(), std::ios::in);
     char ch;
     std::string lastLine;
     double snrAvg;

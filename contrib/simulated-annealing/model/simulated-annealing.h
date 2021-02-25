@@ -43,8 +43,10 @@ private:
     int _numChannels;
     std::vector<std::pair<int, int>> _links;
     std::map<int, int> _currentSolutionMap;
-    std::string _energyFile;
+    std::string _sinrAvgFilename;
+    std::ofstream _solutionFile;
     std::vector< double > _solnEnergyVec;
+    std::vector<std::map<int, int>> _solnVec;
     std::vector<double> _energyVec;
     std::vector<double>::iterator _energyVecPtr;
     double _currentTemp;

@@ -38,23 +38,20 @@ using namespace ns3;
 double g_signalDbmAvg;
 double g_noiseDbmAvg;
 uint32_t g_samples;
+double g_snrAvg;
 
-void MonitorSniffRx (Ptr<OutputStreamWrapper> stream,
-                     std::string node_num,
-                     Ptr<const Packet> packet,
+void MonitorSniffRx (Ptr<const Packet> packet,
                      uint16_t channelFreqMhz,
                      WifiTxVector txVector,
                      MpduInfo aMpdu,
                      SignalNoiseDbm signalNoise)
 
 {
-  // g_samples++;
-  // g_signalDbmAvg += ((signalNoise.signal - g_signalDbmAvg) / g_samples);
-  // g_noiseDbmAvg += ((signalNoise.noise - g_noiseDbmAvg) / g_samples);
-
-  //*stream->GetStream () << "node , " << node_num << " , SNR , " << signalNoise.signal - signalNoise.noise << "\n";
-  *stream->GetStream () << node_num << ", " << signalNoise.signal - signalNoise.noise << "\n";
+  g_samples++;
+  g_signalDbmAvg += ((signalNoise.signal - g_signalDbmAvg) / g_samples);
+  g_noiseDbmAvg += ((signalNoise.noise - g_noiseDbmAvg) / g_samples);
 }
+
 
 template < typename T > 
 std::vector<std::pair<T,T> > make_unique_pairs(const std::vector<T>& set)
@@ -71,33 +68,26 @@ std::vector<std::pair<T,T> > make_unique_pairs(const std::vector<T>& set)
   return result;
 }
 
-std::unordered_map<int, double> channelGainMap = {
-  {1, 10}, {2, 8}, {3, 6}, {4, 4}, {5, 2}
-};
-
-std::unordered_map<int, double> channelThroughputMap = {
-  {1, 0}, {2, 0}, {3, 0}, {4, 0}, {5, 0}, {6, 0}, {7,0}, {8, 0}, {9, 0}, {10, 0}, {11, 0}, {12, 0}, {13, 0}
-};
 
 NS_LOG_COMPONENT_DEFINE ("TestMeshSpectrumChannelsAllLinksScript");
 
-Ptr<SpectrumModel> SpectrumModel2417MHz;
+Ptr<SpectrumModel> SpectrumModel5180MHz;
 
-class static_SpectrumModel2417MHz_initializer
+class static_SpectrumModel5180MHz_initializer
 {
 public:
-    static_SpectrumModel2417MHz_initializer ()
+    static_SpectrumModel5180MHz_initializer ()
     {
         BandInfo bandInfo;
-        bandInfo.fc = 2417e6;
-        bandInfo.fl = 2417e6 - 10e6;
-        bandInfo.fh = 2417e6 + 10e6;
+        bandInfo.fc = 5180e6;
+        bandInfo.fl = 5180e6 - 10e6;
+        bandInfo.fh = 5180e6 + 10e6;
         Bands bands;
         bands.push_back (bandInfo);
 
-        SpectrumModel2417MHz = Create<SpectrumModel> (bands);
+        SpectrumModel5180MHz = Create<SpectrumModel> (bands);
     }
-} static_SpectrumModel2417MHz_initializer_inst;
+} static_SpectrumModel5180MHz_initializer_inst;
 
 class MeshTest
 {
@@ -190,7 +180,7 @@ MeshTest::MeshTest () :
   m_pcap (false),
   m_ascii (true),
   rss (-50),
-  waveformPower (0.1),
+  waveformPower (0.0),
   throughput (0),
   totalPacketsThrough (0),
   m_stack ("ns3::Dot11sStack"),
@@ -209,7 +199,7 @@ MeshTest::CreateNodes ()
   spectrumChannel = CreateObject<MultiModelSpectrumChannel> ();
   Ptr<FriisPropagationLossModel> lossModel
     = CreateObject<FriisPropagationLossModel> ();
-  lossModel->SetFrequency (2.417e9);
+  lossModel->SetFrequency (5.180e9);
   spectrumChannel->AddPropagationLossModel (lossModel);
 
   Ptr<ConstantSpeedPropagationDelayModel> delayModel
@@ -218,7 +208,7 @@ MeshTest::CreateNodes ()
 
   spectrumPhy.SetChannel (spectrumChannel);
   spectrumPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
-  spectrumPhy.Set ("Frequency", UintegerValue(2417));
+  spectrumPhy.Set ("Frequency", UintegerValue(5180));
   /*
    * Create mesh helper and set stack installer to it
    * Stack installer creates all needed protocols and install them to
@@ -228,6 +218,7 @@ MeshTest::CreateNodes ()
   mesh.SetStackInstaller (m_stack);
   mesh.SetSpreadInterfaceChannels (MeshHelper::SPREAD_CHANNELS);
   mesh.SetMacType ("RandomStart", TimeValue (Seconds (m_randomStart)));
+  mesh.SetStandard(WIFI_PHY_STANDARD_TVWS_8MHZ);
   // Set number of interfaces - default is single-interface mesh point
   mesh.SetNumberOfInterfaces (m_nIfaces);
   // Install protocols and return container if MeshPointDevices
@@ -327,30 +318,10 @@ void MeshTest::GetSetChannelNumber (uint16_t newChannelNumber, uint8_t serverNod
   ifmac->SwitchFrequencyChannel (newChannelNumber);
   NS_LOG_UNCOND ("New channel: " << ifmac->GetFrequencyChannel ());
 }
-double
-MeshTest::CalculateThroughput (int channelNum, int node, std::unordered_map<int, double> &throughputMap)
-{
-  NS_LOG_UNCOND("total packets through before: " << totalPacketsThrough);
-  
-  currentTotalPackets = 0;
-  int totalPacketsPerNode = DynamicCast<UdpServer> (serverApps.Get (node))->GetReceived ();
-  currentTotalPackets += totalPacketsPerNode;
-  NS_LOG_UNCOND("currentTotalPackets for node " << int(node) << " = " << totalPacketsPerNode);
-
-  packetsInInterval = currentTotalPackets;
-  NS_LOG_UNCOND("packets in the interval " << packetsInInterval);
-  throughput = packetsInInterval * m_packetSize * 8 / (m_totalTime * 1000000.0); //Mbit/s
-  NS_LOG_UNCOND("\n throughput: " << throughput << "\n");
-  channelThroughputMap[channelNum] = throughput;
-
-  //Config::ConnectWithoutContext ("/NodeList/" + std::to_string(node) + "/DeviceList/0/Phy/MonitorSnifferRx", MakeCallback (&MonitorSniffRx));
-
-  return throughput;
-}
 void
 MeshTest::ConfigureWaveform ()
 {
-  Ptr<SpectrumValue> wgPsd = Create<SpectrumValue> (SpectrumModel2417MHz);
+  Ptr<SpectrumValue> wgPsd = Create<SpectrumValue> (SpectrumModel5180MHz);
   *wgPsd = waveformPower / 20e6;
   waveformGeneratorHelper.SetChannel (spectrumChannel);
   waveformGeneratorHelper.SetTxPowerSpectralDensity (wgPsd);
@@ -366,7 +337,7 @@ MeshTest::Run ()
   g_noiseDbmAvg = 0;
   g_samples = 0;
   AsciiTraceHelper asciiTraceHelper;
-  Ptr<OutputStreamWrapper> stream = asciiTraceHelper.CreateFileStream("SNRtrace_interference.tr");
+  // Ptr<OutputStreamWrapper> stream = asciiTraceHelper.CreateFileStream("SNRtrace_no_interference.tr");
 
   PacketMetadata::Enable ();
   CreateNodes ();
@@ -380,28 +351,33 @@ MeshTest::Run ()
   std::vector<int> values (m_xSize*m_ySize);
   std::iota(values.begin(), values.end(), 0);
 
-  std::vector<int> channels (13);
-  std::iota(channels.begin(), channels.end(), 1);
-  std::random_shuffle(std::begin(channels), std::end(channels));
-  for (uint8_t i=0; i<channels.size(); i++)
-  {
-    std::cout << "channel number: " << channels[i] << std::endl;
-  }
+  std::vector<int> channels = {36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56};
 
   int serverNode;
   int clientNode;
   uint8_t channelIndex=0;
   uint8_t channel=0;
 
-  for (auto pair : make_unique_pairs(values)) {
-    NS_LOG_UNCOND(pair.first << ", " << pair.second << "\n");
-    if (pair.first!= pair.second) {
-      serverNode = pair.first;
-      clientNode = pair.second;
+  std::vector<std::pair<int, int>> links;
+  links.emplace_back(1, 3);
+  links.emplace_back(2, 1);
+  links.emplace_back(3, 6);
+  links.emplace_back(4, 2);
+  links.emplace_back(5, 7);
+  links.emplace_back(6, 5);
+  links.emplace_back(7, 0);
+  links.emplace_back(0, 4);
+
+  std::vector<std::pair<int, int>>::iterator it;
+  for (it=links.begin(); it!=links.end(); ++it)
+  {
+    NS_LOG_UNCOND(it->first << ", " << it->second << "\n");
+    if (it->first!= it->second) {
+      serverNode = it->first;
+      clientNode = it->second;
       channel = channels[channelIndex];
       InstallClientApplication (serverNode, clientNode);
       Simulator::Schedule(Seconds (0), &MeshTest::GetSetChannelNumber, this, channel, serverNode, clientNode);
-      Simulator::Schedule(Seconds (m_totalTime), &MeshTest::CalculateThroughput, this, channel, serverNode, channelThroughputMap);
       if (channelIndex < 13) {
         channelIndex++;
       }
@@ -413,27 +389,18 @@ MeshTest::Run ()
 
   Simulator::Stop (Seconds (m_totalTime));
 
-  for (uint8_t node_num=0; node_num<m_xSize*m_ySize; node_num++) {
-    for (uint8_t interf=0; interf<m_nIfaces; interf++){
-      Config::ConnectWithoutContext (
-        "/NodeList/" + std::to_string(node_num) + "/DeviceList/" + std::to_string(interf) + "/Phy/MonitorSnifferRx",
-        MakeBoundCallback (&MonitorSniffRx, stream, std::to_string(node_num)+std::to_string(interf))
-      );
-    }
-  }
+  // for (uint8_t node_num=0; node_num<m_xSize*m_ySize; node_num++) {
+  //   for (uint8_t interf=0; interf<m_nIfaces; interf++){
+  //     Config::ConnectWithoutContext (
+  //       "/NodeList/" + std::to_string(node_num) + "/DeviceList/" + std::to_string(interf) + "/Phy/MonitorSnifferRx",
+  //       MakeBoundCallback (&MonitorSniffRx, stream, std::to_string(node_num)+std::to_string(interf))
+  //     );
+  //   }
+  // }
+  Config::ConnectWithoutContext (
+        "/NodeList/*/DeviceList/*/Phy/MonitorSnifferRx", MakeCallback (&MonitorSniffRx));
+  std::cout << "SNR: " << g_signalDbmAvg - g_noiseDbmAvg << std::endl;
   Simulator::Run ();
-
-  double current_max = 0.0;
-  unsigned int max_channel = 0;
-  for (int channel=1; channel<=13; channel++) {
-      NS_LOG_UNCOND("channel: " << channel << " , throughput: " << channelThroughputMap[channel]);
-      if (channelThroughputMap[channel] > current_max) {
-          current_max = channelThroughputMap[channel];
-          max_channel = channel;
-      }
-  }
-  NS_LOG_UNCOND ("max throughput: " << current_max << " on channel " << max_channel);
-  //NS_LOG_UNCOND ("average signal (dBm) " << g_signalDbmAvg << " average noise (dBm) " << g_noiseDbmAvg);
   Simulator::Destroy ();
   return 0;
 }

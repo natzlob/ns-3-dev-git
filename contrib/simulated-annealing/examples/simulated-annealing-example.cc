@@ -79,7 +79,7 @@ main (int argc, char *argv[])
   // for(it=startSolution.begin(); it!=startSolution.end(); ++it){
   //   std::cout << it->first << " => " << it->second << '\n';
   // }
-  SimulatedAnnealing SA(initTemp, links, numChannels, startSolution, seed, "SNRaverage.csv");
+  SimulatedAnnealing SA(initTemp, links, numChannels, startSolution, seed, "SINRaverage2.csv");
 
   SA.setCurrentTemp();
   // std::cout << "Current temp = " << std::to_string(SA.getTemp()) << std::endl;

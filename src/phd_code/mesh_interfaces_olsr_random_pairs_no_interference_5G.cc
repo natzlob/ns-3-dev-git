@@ -48,6 +48,11 @@ void MonitorSniffRx (Ptr<OutputStreamWrapper> stream,
                      SignalNoiseDbm signalNoise)
 
 {
+  // g_samples++;
+  // g_signalDbmAvg += ((signalNoise.signal - g_signalDbmAvg) / g_samples);
+  // g_noiseDbmAvg += ((signalNoise.noise - g_noiseDbmAvg) / g_samples);
+
+  //*stream->GetStream () << "node , " << node_num << " , SNR , " << signalNoise.signal - signalNoise.noise << "\n";
   *stream->GetStream () << node_num << ", " << signalNoise.signal - signalNoise.noise << "\n";
 }
 
@@ -76,23 +81,23 @@ std::unordered_map<int, double> channelThroughputMap = {
 
 NS_LOG_COMPONENT_DEFINE ("TestMeshSpectrumChannelsAllLinksScript");
 
-Ptr<SpectrumModel> SpectrumModel2417MHz;
+Ptr<SpectrumModel> SpectrumModel5180MHz;
 
-class static_SpectrumModel2417MHz_initializer
+class static_SpectrumModel5180MHz_initializer
 {
 public:
-    static_SpectrumModel2417MHz_initializer ()
+    static_SpectrumModel5180MHz_initializer ()
     {
         BandInfo bandInfo;
-        bandInfo.fc = 2417e6;
-        bandInfo.fl = 2417e6 - 10e6;
-        bandInfo.fh = 2417e6 + 10e6;
+        bandInfo.fc = 5180e6;
+        bandInfo.fl = 5180e6 - 10e6;
+        bandInfo.fh = 5180e6 + 10e6;
         Bands bands;
         bands.push_back (bandInfo);
 
-        SpectrumModel2417MHz = Create<SpectrumModel> (bands);
+        SpectrumModel5180MHz = Create<SpectrumModel> (bands);
     }
-} static_SpectrumModel2417MHz_initializer_inst;
+} static_SpectrumModel5180MHz_initializer_inst;
 
 class MeshTest
 {
@@ -185,7 +190,7 @@ MeshTest::MeshTest () :
   m_pcap (false),
   m_ascii (true),
   rss (-50),
-  waveformPower (0.1),
+  waveformPower (0.001),
   throughput (0),
   totalPacketsThrough (0),
   m_stack ("ns3::Dot11sStack"),
@@ -200,15 +205,11 @@ MeshTest::CreateNodes ()
    */
   nodes.Create (m_ySize*m_xSize);
   interfNode.Create(1);
-  // Configure YansWifiChannel
-  // YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
-  spectrumPhy = SpectrumWifiPhyHelper::Default ();
-  // wifiChannel = YansWifiChannelHelper::Default ();
-  //spectrumChannel = SpectrumChannelHelper::Default ();
+  spectrumPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
   spectrumChannel = CreateObject<MultiModelSpectrumChannel> ();
   Ptr<FriisPropagationLossModel> lossModel
     = CreateObject<FriisPropagationLossModel> ();
-  lossModel->SetFrequency (2.417e9);
+  lossModel->SetFrequency (5.180e9);
   spectrumChannel->AddPropagationLossModel (lossModel);
 
   Ptr<ConstantSpeedPropagationDelayModel> delayModel
@@ -217,7 +218,7 @@ MeshTest::CreateNodes ()
 
   spectrumPhy.SetChannel (spectrumChannel);
   spectrumPhy.SetErrorRateModel ("ns3::NistErrorRateModel");
-  spectrumPhy.Set ("Frequency", UintegerValue(2417));
+  spectrumPhy.Set ("Frequency", UintegerValue(5180));
   /*
    * Create mesh helper and set stack installer to it
    * Stack installer creates all needed protocols and install them to
@@ -346,6 +347,18 @@ MeshTest::CalculateThroughput (int channelNum, int node, std::unordered_map<int,
 
   return throughput;
 }
+void
+MeshTest::ConfigureWaveform ()
+{
+  Ptr<SpectrumValue> wgPsd = Create<SpectrumValue> (SpectrumModel5180MHz);
+  *wgPsd = waveformPower / 20e6;
+  waveformGeneratorHelper.SetChannel (spectrumChannel);
+  waveformGeneratorHelper.SetTxPowerSpectralDensity (wgPsd);
+  waveformGeneratorHelper.SetPhyAttribute ("Period", TimeValue (Seconds (0.0007)));
+  waveformGeneratorHelper.SetPhyAttribute ("DutyCycle", DoubleValue (1));
+  waveformGeneratorDevices = waveformGeneratorHelper.Install (interfNode);
+  NS_LOG_UNCOND("configuring waveform\n");
+}
 int
 MeshTest::Run ()
 {
@@ -353,14 +366,16 @@ MeshTest::Run ()
   g_noiseDbmAvg = 0;
   g_samples = 0;
   AsciiTraceHelper asciiTraceHelper;
-  Ptr<OutputStreamWrapper> stream = asciiTraceHelper.CreateFileStream("SNRtrace_3.tr");
-  Ptr<OutputStreamWrapper> stream2 = asciiTraceHelper.CreateFileStream("Channel-throughput_without_interference.txt");
+  Ptr<OutputStreamWrapper> stream = asciiTraceHelper.CreateFileStream("SNRtrace_interference_5GHz.tr");
 
   PacketMetadata::Enable ();
   CreateNodes ();
+  ConfigureWaveform ();
   InstallInternetStack ();
   InstallServerApplication ();
 
+  Simulator::Schedule (Seconds(0), &WaveformGenerator::Start,
+    waveformGeneratorDevices.Get(0)->GetObject<NonCommunicatingNetDevice>()->GetPhy()->GetObject<WaveformGenerator>());
   std::srand(std::time(nullptr));
   std::vector<int> values (m_xSize*m_ySize);
   std::iota(values.begin(), values.end(), 0);
@@ -408,19 +423,17 @@ MeshTest::Run ()
   }
   Simulator::Run ();
 
-  *stream2->GetStream() << "channel , throughput \n";
   double current_max = 0.0;
   unsigned int max_channel = 0;
   for (int channel=1; channel<=13; channel++) {
       NS_LOG_UNCOND("channel: " << channel << " , throughput: " << channelThroughputMap[channel]);
-      std::cout << channel << " , " << throughput << "\n";
-      *stream2->GetStream() << channel << " , " << throughput << "\n";
       if (channelThroughputMap[channel] > current_max) {
           current_max = channelThroughputMap[channel];
           max_channel = channel;
       }
   }
   NS_LOG_UNCOND ("max throughput: " << current_max << " on channel " << max_channel);
+  //NS_LOG_UNCOND ("average signal (dBm) " << g_signalDbmAvg << " average noise (dBm) " << g_noiseDbmAvg);
   Simulator::Destroy ();
   return 0;
 }

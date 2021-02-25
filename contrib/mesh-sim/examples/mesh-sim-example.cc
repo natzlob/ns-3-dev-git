@@ -57,9 +57,13 @@ main (int argc, char *argv[])
   std::iota(nodeNums.begin(), nodeNums.end(), 0);
   links = make_unique_pairs(nodeNums);
   linkChannelMap = mapLinkChannel(links.size(), channels);
-  
+  std::map<int, int>::iterator mapit;
+  for (mapit=linkChannelMap.begin(); mapit!=linkChannelMap.end(); ++mapit) {
+      std::cout << mapit->first << " => " << mapit->second << std::endl;
+  }
+
   MeshSim t(channels);
-  return t.Run (linkChannelMap, links, channels);
+  return t.Run (linkChannelMap, links);
 
 }
 

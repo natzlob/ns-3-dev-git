@@ -8,7 +8,7 @@ using namespace std;
 
 int main()
 {
-    string _energyFile = "SNRaverage.txt";
+    string _energyFile = "SINRaverage2.csv";
     std::vector<double> _energyVec;
     ifstream file;
     file.open(_energyFile.c_str(), std::ios::in);
@@ -36,6 +36,7 @@ int main()
 
         cout << "Result: " << snrAvg << '\n';
         _energyVec.push_back(snrAvg);
+        cout << "Last entry in energyVec = " << _energyVec.back() << "\n";
         file.close();
     }
 

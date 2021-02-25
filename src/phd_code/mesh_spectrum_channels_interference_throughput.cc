@@ -206,7 +206,7 @@ MeshTest::MeshTest () :
   m_ySize (3),
   m_step (150.0),
   m_randomStart (0.1),
-  m_totalTime (150.0),
+  m_totalTime (20.0),
   m_packetInterval (0.001),
   m_packetSize (1024),
   m_nIfaces (2),
@@ -214,7 +214,7 @@ MeshTest::MeshTest () :
   m_pcap (false),
   m_ascii (true),
   rss (-50),
-  waveformPower (0.2),
+  waveformPower (0.0),
   throughput (0),
   totalPacketsThrough (0),
   m_stack ("ns3::Dot11sStack"),
@@ -518,6 +518,7 @@ MeshTest::Run ()
   unsigned int max_channel = 0;
   for (int channel=1; channel<=13; channel++) {
       NS_LOG_UNCOND("channel: " << channel << " , throughput: " << channelThroughputMap[channel]);
+      std::cout << channel << " , " << throughput << "\n";
       if (channelThroughputMap[channel] > current_max) {
           current_max = channelThroughputMap[channel];
           max_channel = channel;
