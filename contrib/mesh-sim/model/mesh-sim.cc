@@ -17,7 +17,7 @@ MeshSim::MeshSim (std::vector<int> channels)
   m_ySize = 3;
   m_step = 100.0;
   m_randomStart = 0.1;
-  m_totalTime = 20.0;
+  m_totalTime = 15.0;
   m_packetInterval = 0.01;
   m_packetSize = 1024;
   m_nIfaces = 2;
@@ -30,6 +30,7 @@ MeshSim::MeshSim (std::vector<int> channels)
   totalPacketsThrough = 0;
   m_stack = "ns3::Dot11sStack";
   m_root = "ff:ff:ff:ff:ff:ff";
+  AsciiTraceHelper asciiTraceHelper;
 }
 
 void
@@ -202,7 +203,7 @@ MeshSim::Run (std::map<int, int>& linkChannelMap, std::vector<std::pair<int, int
   g_noiseDbmAvg = 0;
   g_samples = 0;
   AsciiTraceHelper asciiTraceHelper;
-  // Ptr<OutputStreamWrapper> stream = asciiTraceHelper.CreateFileStream("SNRtrace.tr");
+  Ptr<OutputStreamWrapper> stream = asciiTraceHelper.CreateFileStream("SNR_5G.csv");
   // Ptr<OutputStreamWrapper> stream2 = asciiTraceHelper.CreateFileStream("Channel-throughput_without_interference.txt");
 
   PacketMetadata::Enable ();
@@ -237,10 +238,10 @@ MeshSim::Run (std::map<int, int>& linkChannelMap, std::vector<std::pair<int, int
 
   // for (uint8_t node_num=0; node_num<m_xSize*m_ySize; node_num++) {
   //   for (uint8_t interf=0; interf<m_nIfaces; interf++){
-  //     Config::ConnectWithoutContext (
-  //       "/NodeList/" + std::to_string(node_num) + "/DeviceList/" + std::to_string(interf) + "/Phy/MonitorSnifferRx",
-  //       MakeBoundCallback (&MonitorSniffRx, stream, std::to_string(node_num)+std::to_string(interf))
-  //     );
+  Config::ConnectWithoutContext (
+    "/NodeList/*/DeviceList/*/Phy/MonitorSnifferRx",
+    MakeBoundCallback (&MonitorSniffRx, stream)
+  );
   //   }
   // }
   Simulator::Run ();
@@ -261,7 +262,7 @@ MeshSim::Run (std::map<int, int>& linkChannelMap, std::vector<std::pair<int, int
 
   Simulator::Destroy ();
 
-  system("python src/phd_code/SINR_average.py");
+  system("python src/phd_code/SNR_average_only.py");
   return 0;
 }
 

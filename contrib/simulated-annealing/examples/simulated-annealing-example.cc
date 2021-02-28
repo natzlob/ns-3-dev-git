@@ -2,9 +2,16 @@
 
 #include "ns3/core-module.h"
 #include "ns3/simulated-annealing.h"
+#include <sys/stat.h>
+#include <unistd.h>
 
 using namespace ns3;
 
+
+inline bool exists(const std::string& name) {
+  struct stat buffer;   
+  return (stat (name.c_str(), &buffer) == 0); 
+}
 
 uint32_t seedseq_random_using_clock()
 {
@@ -62,7 +69,7 @@ main (int argc, char *argv[])
   double initTemp = 100.00;
   int numLinks = 9;
   int numChannels = 13;
-  uint16_t maxIterations = 10000;
+  uint16_t maxIterations = 500;
 
   std::vector<int> channels (numChannels);
   std::iota(channels.begin(), channels.end(), 1);
@@ -79,29 +86,37 @@ main (int argc, char *argv[])
   // for(it=startSolution.begin(); it!=startSolution.end(); ++it){
   //   std::cout << it->first << " => " << it->second << '\n';
   // }
-  SimulatedAnnealing SA(initTemp, links, numChannels, startSolution, seed, "SINRaverage2.csv");
+  SimulatedAnnealing SA(initTemp, links, numChannels, startSolution, seed, "SINRaverage3.csv");
 
   SA.setCurrentTemp();
   // std::cout << "Current temp = " << std::to_string(SA.getTemp()) << std::endl;
   SA.calcSolutionEnergy();
   SA.generateNewSolution();
-  std::map<int, int> newSolution = *SA.getCurrentSolution();
+  // std::map<int, int> newSolution = *SA.getCurrentSolution();
   // for(it=newSolution.begin(); it!=newSolution.end(); ++it){
   //   std::cout << it->first << " => " << it->second << '\n';
   // }
   SA.calcSolutionEnergy();
   SA.Acceptance();
 
+  std::string filename = "/home/natasha/repos/ns-3-dev-git/SNR_5G.csv";
+
   while ( (SA._algIter < maxIterations) && SA.getTemp()>2 ) {
     SA.setCurrentTemp();
+    std::cout<< "current temp = " << SA.getTemp() << "\n";
     SA.generateNewSolution();
     SA.calcSolutionEnergy();
     SA.Acceptance();
+
+    if (exists(filename.c_str())) {
+      if (remove(filename.c_str()) != 0 )
+        perror( "Error deleting file" );
+      else
+        puts( "File successfully deleted" );
+    }
+    // SA.setCurrentTemp();
   }
 
-
-  // Simulator::Run ();
-  // Simulator::Destroy ();
   return 0;
 }
 

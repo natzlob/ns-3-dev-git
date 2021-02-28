@@ -61,7 +61,6 @@ void SimulatedAnnealing::Acceptance()
 {
     bool acceptpoint;
     double dE=_energyVec.at(_energyVec.size()-1) - _energyVec.at(_energyVec.size()-2);
-    avgdE=(avgdE+abs(dE))/2;
     double n=0;
     double h=0;
 
@@ -72,12 +71,14 @@ void SimulatedAnnealing::Acceptance()
     else
     {
         n=dis(gen)/((double)RAND_MAX+1);
-        h = 1/(1+exp(dE/_currentTemp));
+        // h = 1/(1+exp(dE/_currentTemp));
+        h = exp(-1*dE/_currentTemp);
         if (h > n)
             acceptpoint = true;
         else
             acceptpoint = false;
     }
+    NS_LOG_UNCOND("point accepted is " << acceptpoint << "\n");
     if ((acceptpoint==false)&&(_energyVec.size()>2))
     {
             _energyVec.pop_back();
@@ -92,6 +93,7 @@ void SimulatedAnnealing::calcSolutionEnergy()
     //run simulation, getting SNR value sample, get average SNR, write to file, read it here
     MeshSim mesh({});
     mesh.Run(_currentSolutionMap, _links);
+    std::cout << "Run mesh simulation to completion" << "\n";
     ifstream file;
     file.open(_sinrAvgFilename.c_str(), std::ios::in);
     char ch;

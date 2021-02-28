@@ -11,8 +11,11 @@
 #include <ctime>
 #include <numeric>
 #include <string>
+#include <sstream>
+#include <fstream>
 
 #include "ns3/core-module.h"
+#include "ns3/trace-helper.h"
 #include "ns3/internet-module.h"
 #include "ns3/network-module.h"
 #include "ns3/applications-module.h"
@@ -40,8 +43,19 @@ double g_signalDbmAvg;
 double g_noiseDbmAvg;
 uint32_t g_samples;
 
+// void MonitorSniffRx (ns3::Ptr<ns3::OutputStreamWrapper> stream,
+//                      std::string node_num,
+//                      ns3::Ptr<const ns3::Packet> packet,
+//                      uint16_t channelFreqMhz,
+//                      ns3::WifiTxVector txVector,
+//                      ns3::MpduInfo aMpdu,
+//                      ns3::SignalNoiseDbm signalNoise)
+
+// {
+//   *stream->GetStream () << node_num << ", " << signalNoise.signal - signalNoise.noise << "\n";
+// }
+
 void MonitorSniffRx (ns3::Ptr<ns3::OutputStreamWrapper> stream,
-                     std::string node_num,
                      ns3::Ptr<const ns3::Packet> packet,
                      uint16_t channelFreqMhz,
                      ns3::WifiTxVector txVector,
@@ -49,9 +63,11 @@ void MonitorSniffRx (ns3::Ptr<ns3::OutputStreamWrapper> stream,
                      ns3::SignalNoiseDbm signalNoise)
 
 {
-  *stream->GetStream () << node_num << ", " << signalNoise.signal - signalNoise.noise << "\n";
+  g_samples++;
+  g_signalDbmAvg += ((signalNoise.signal - g_signalDbmAvg) / g_samples);
+  g_noiseDbmAvg += ((signalNoise.noise - g_noiseDbmAvg) / g_samples);
+  *stream->GetStream () << g_signalDbmAvg - g_noiseDbmAvg << "\n";
 }
-
 
 namespace ns3 {
 
@@ -113,6 +129,8 @@ public:
    /// Get current channel number and set to new channel
   void GetSetChannelNumber (uint16_t newChannelNumber, uint8_t serverNode, uint8_t clientNode);
 private:
+  // std::string filename;
+  // Ptr<OutputStreamWrapper> stream;
   std::unordered_map<int, double> channelThroughputMap;
   std::vector<int> _channels;
   int       m_xSize; ///< X size
