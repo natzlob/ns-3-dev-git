@@ -66,7 +66,7 @@ main (int argc, char *argv[])
   cmd.Parse (argc,argv);
 
   uint32_t seed = seedseq_random_using_clock();
-  double initTemp = 100.00;
+  double initTemp = 50.00;
   int numLinks = 9;
   int numChannels = 13;
   uint16_t maxIterations = 500;
