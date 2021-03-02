@@ -9,6 +9,8 @@ using std::ifstream;
 
 namespace ns3 {
 
+    const double kBoltzmann=1.3806504e-23;
+
 SimulatedAnnealing::SimulatedAnnealing(double Ti, std::vector<std::pair<int, int>> links, int numberOfChannels, std::map<int, int> startSolution, uint32_t Seed, std::string filename)
 {
     _initTemp = Ti;
@@ -20,7 +22,13 @@ SimulatedAnnealing::SimulatedAnnealing(double Ti, std::vector<std::pair<int, int
     _energyVec = {};
     _solnVec.push_back(_currentSolutionMap);
     _sinrAvgFilename = filename;
-    _solutionFile.open("acceptedSolutions.csv", std::ios_base::app);
+    _solutionFile.open("/home/natasha/repos/ns-3-dev-git/acceptedSolutions.txt", std::ios::out | std::ios::app);
+    if (!_solutionFile) {
+        std::cerr << "can't open output file" << std::endl;
+    }
+    // AsciiTraceHelper asciiTraceHelperSolution;
+    // Ptr<OutputStreamWrapper> _solutionFile = asciiTraceHelperSolution.CreateFileStream("/home/natasha/repos/ns-3-dev-git/acceptedSolutions.txt");
+
     // _solnEnergyVec.push_back(*_energyVec.begin());
     solnIter = 1;
     _algIter = 0;
@@ -52,17 +60,18 @@ void SimulatedAnnealing::generateNewSolution() {
     _currentSolutionMap[link] = newChannel;
     _solnVec.push_back(_currentSolutionMap);
     std::map<int, int>::iterator mapit;
-    for (mapit=_currentSolutionMap.begin(); mapit!=_currentSolutionMap.end(); ++mapit) {
-        std::cout << mapit->first << " => " << mapit->second << std::endl;
-    }
+    // for (mapit=_currentSolutionMap.begin(); mapit!=_currentSolutionMap.end(); ++mapit) {
+    //     std::cout << mapit->first << " => " << mapit->second << std::endl;
+    // }
 }
 
 void SimulatedAnnealing::Acceptance()
 {
     bool acceptpoint;
-    double dE=_energyVec.at(_energyVec.size()-1) - _energyVec.at(_energyVec.size()-2);
-    double n=0;
-    double h=0;
+    double dE =_energyVec.at(_energyVec.size()-1) - _energyVec.at(_energyVec.size()-2);
+    std::cout << "dE = " << dE << "\n";
+    double n=0.0;
+    double h=0.0;
 
     if (dE < 0)
     {
@@ -71,8 +80,9 @@ void SimulatedAnnealing::Acceptance()
     else
     {
         n=dis(gen)/((double)RAND_MAX+1);
-        // h = 1/(1+exp(dE/_currentTemp));
-        h = exp(-1*dE/_currentTemp);
+        h = 1/(1+exp(dE/_currentTemp));
+        // h = exp(-1*dE/_currentTemp);
+        std::cout << "random value = " << n << " , h = " << h << "\n";
         if (h > n)
             acceptpoint = true;
         else
@@ -84,7 +94,9 @@ void SimulatedAnnealing::Acceptance()
             _energyVec.pop_back();
             //_solnVec.pop_back();
     }
-    _solutionFile << _energyVec.back();
+    //_solutionFile << std::to_string(_energyVec.back()) << "\n";
+    _solutionFile << _energyVec.back() << "\n";
+    std::cout << "solutionFile << " << _energyVec.back() << "\n";
     _algIter++;
 }
 
@@ -119,6 +131,7 @@ void SimulatedAnnealing::calcSolutionEnergy()
 
         std::cout << "Result: " << snrAvg << '\n';
         _energyVec.push_back(1/snrAvg);
+        std::cout << "Pushed " << _energyVec.back() << "to _energyVec\n";
         file.close();
     }
 }
@@ -131,6 +144,15 @@ std::vector<double> SimulatedAnnealing::getEnergyVec()
 std::map<int, int>* SimulatedAnnealing::getCurrentSolution()
 {
     return &_currentSolutionMap;
+}
+
+void SimulatedAnnealing::Run()
+{
+    setCurrentTemp();
+    std::cout<< "current temp = " << getTemp() << "\n";
+    generateNewSolution();
+    calcSolutionEnergy();
+    Acceptance();
 }
 
 

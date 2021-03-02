@@ -165,7 +165,9 @@ WifiPhy::ChannelToFrequencyWidthMap WifiPhy::m_channelToFrequencyWidth =
   { std::make_pair (25, WIFI_PHY_STANDARD_TVWS_8MHZ), std::make_pair (506, 8) },
   { std::make_pair (26, WIFI_PHY_STANDARD_TVWS_8MHZ), std::make_pair (514, 8) },
   { std::make_pair (27, WIFI_PHY_STANDARD_TVWS_8MHZ), std::make_pair (522, 8) },
-  { std::make_pair (28, WIFI_PHY_STANDARD_TVWS_8MHZ), std::make_pair (530, 8) }
+  { std::make_pair (28, WIFI_PHY_STANDARD_TVWS_8MHZ), std::make_pair (530, 8) },
+  { std::make_pair (29, WIFI_PHY_STANDARD_TVWS_8MHZ), std::make_pair (538, 8) },
+  { std::make_pair (30, WIFI_PHY_STANDARD_TVWS_8MHZ), std::make_pair (546, 8) }
 };
 
 TypeId

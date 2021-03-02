@@ -33,8 +33,8 @@ int main (int argc, char *argv[])
   Config::SetDefault ("ns3::OnOffApplication::PacketSize", UintegerValue (512));
   Config::SetDefault ("ns3::OnOffApplication::DataRate", StringValue ("500kb/s"));
 
-  uint32_t xSize = 5;
-  uint32_t ySize = 5;
+  uint32_t xSize = 3;
+  uint32_t ySize = 3;
   std::string animFile = "grid-animation.xml";
 
   CommandLine cmd (__FILE__);

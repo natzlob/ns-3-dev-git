@@ -13,6 +13,9 @@
 #include <fstream>
 #include <algorithm>
 
+#include "ns3/output-stream-wrapper.h"
+#include "ns3/trace-helper.h"
+
 namespace ns3 {
 
 class SimulatedAnnealing
@@ -24,6 +27,7 @@ public:
     void Acceptance();
     void calcSolutionEnergy();
     double getTemp();
+    void Run();
     double _initTemp;
     unsigned int solnIter;
     //std::vector<std::vector<int> > _solnVec;
@@ -45,6 +49,7 @@ private:
     std::map<int, int> _currentSolutionMap;
     std::string _sinrAvgFilename;
     std::ofstream _solutionFile;
+    // ns3::Ptr<ns3::OutputStreamWrapper> _solutionFile;
     std::vector< double > _solnEnergyVec;
     std::vector<std::map<int, int>> _solnVec;
     std::vector<double> _energyVec;

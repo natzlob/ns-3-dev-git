@@ -4,6 +4,7 @@
 #include "ns3/simulated-annealing.h"
 #include <sys/stat.h>
 #include <unistd.h>
+#include "ns3/global.h"
 
 using namespace ns3;
 
@@ -69,7 +70,7 @@ main (int argc, char *argv[])
   double initTemp = 50.00;
   int numLinks = 9;
   int numChannels = 13;
-  uint16_t maxIterations = 500;
+  uint16_t maxIterations = 1000;
 
   std::vector<int> channels (numChannels);
   std::iota(channels.begin(), channels.end(), 1);
@@ -86,7 +87,7 @@ main (int argc, char *argv[])
   // for(it=startSolution.begin(); it!=startSolution.end(); ++it){
   //   std::cout << it->first << " => " << it->second << '\n';
   // }
-  SimulatedAnnealing SA(initTemp, links, numChannels, startSolution, seed, "SINRaverage3.csv");
+  SimulatedAnnealing SA(initTemp, links, numChannels, startSolution, seed, "SINRaverage5.csv");
 
   SA.setCurrentTemp();
   // std::cout << "Current temp = " << std::to_string(SA.getTemp()) << std::endl;
@@ -99,15 +100,10 @@ main (int argc, char *argv[])
   SA.calcSolutionEnergy();
   SA.Acceptance();
 
-  std::string filename = "/home/natasha/repos/ns-3-dev-git/SNR_5G.csv";
+  std::string filename = "/home/natasha/repos/ns-3-dev-git/SignalNoiseInterference_5G.csv";
 
   while ( (SA._algIter < maxIterations) && SA.getTemp()>2 ) {
-    SA.setCurrentTemp();
-    std::cout<< "current temp = " << SA.getTemp() << "\n";
-    SA.generateNewSolution();
-    SA.calcSolutionEnergy();
-    SA.Acceptance();
-
+    SA.Run();
     if (exists(filename.c_str())) {
       if (remove(filename.c_str()) != 0 )
         perror( "Error deleting file" );

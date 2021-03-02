@@ -1,11 +1,18 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 
 #include "mesh-sim.h"
+#include "ns3/netanim-module.h"
 
 namespace ns3 {
 
 MeshSim::MeshSim (std::vector<int> channels)
 {
+  AsciiTraceHelper asciiTraceHelperInterference;
+  interference_stream = asciiTraceHelperInterference.CreateFileStream("/home/natasha/repos/ns-3-dev-git/SignalNoiseInterference_5G.csv");
+
+  std::string animFile = "mesh-grid-animation.xml";
+  AnimationInterface anim (animFile);
+
   std::unordered_map<int, double> channelThroughputMap = {};
   _channels = channels;
   std::vector<int>::iterator it;
@@ -238,10 +245,10 @@ MeshSim::Run (std::map<int, int>& linkChannelMap, std::vector<std::pair<int, int
 
   // for (uint8_t node_num=0; node_num<m_xSize*m_ySize; node_num++) {
   //   for (uint8_t interf=0; interf<m_nIfaces; interf++){
-  Config::ConnectWithoutContext (
-    "/NodeList/*/DeviceList/*/Phy/MonitorSnifferRx",
-    MakeBoundCallback (&MonitorSniffRx, stream)
-  );
+  // Config::ConnectWithoutContext (
+  //   "/NodeList/*/DeviceList/*/Phy/MonitorSnifferRx",
+  //   MakeBoundCallback (&MonitorSniffRx, stream)
+  // );
   //   }
   // }
   Simulator::Run ();
@@ -262,7 +269,7 @@ MeshSim::Run (std::map<int, int>& linkChannelMap, std::vector<std::pair<int, int
 
   Simulator::Destroy ();
 
-  system("python src/phd_code/SNR_average_only.py");
+  system("python src/phd_code/SINR_average.py");
   return 0;
 }
 

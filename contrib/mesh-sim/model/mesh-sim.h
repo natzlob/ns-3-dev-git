@@ -36,6 +36,7 @@
 #include "ns3/ipv4-global-routing-helper.h"
 #include "ns3/snr-tag.h"
 #include "ns3/trace-helper.h"
+#include "ns3/global.h"
 
 
 // Global variables for use in callbacks.

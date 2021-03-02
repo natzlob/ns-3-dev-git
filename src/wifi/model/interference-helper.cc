@@ -22,6 +22,7 @@
 #include "ns3/simulator.h"
 #include "ns3/log.h"
 #include "ns3/packet.h"
+#include "ns3/global.h"
 #include "interference-helper.h"
 #include "wifi-phy.h"
 #include "error-rate-model.h"
@@ -250,8 +251,8 @@ InterferenceHelper::CalculateSnr (double signal, double noiseInterference, WifiT
   double noise = noiseFloor + noiseInterference;
   double snr = signal / noise; //linear scale
 
-  // NS_LOG_DEBUG ("bandwidth(MHz)=" << channelWidth << ", signal(W)= " << signal << ", noise(W)=" << noiseFloor << ", interference(W)=" << noiseInterference << ", snr=" << RatioToDb(snr) << "dB");
-  // *stream->GetStream ()  << signal << ", " << noiseFloor << ", " << noiseInterference << ", " << RatioToDb(snr) << "\n";
+  NS_LOG_DEBUG ("bandwidth(MHz)=" << channelWidth << ", signal(W)= " << signal << ", noise(W)=" << noiseFloor << ", interference(W)=" << noiseInterference << ", snr=" << RatioToDb(snr) << "dB");
+  *interference_stream->GetStream ()  << signal << ", " << noiseFloor << ", " << noiseInterference << ", " << RatioToDb(snr) << "\n";
 
   double gain = 1;
   if (m_numRxAntennas > txVector.GetNss ())

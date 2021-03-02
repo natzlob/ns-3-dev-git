@@ -172,6 +172,10 @@ WifiSpectrumValueHelper::CreateOfdmTxPowerSpectralDensity (uint32_t centerFreque
       bandBandwidth = 156250;
       innerSlopeWidth = static_cast<uint32_t> ((1e6 / bandBandwidth) + 0.5); // [-5.5;-4.5] & [4.5;5.5]
       break;
+    case 8:
+      bandBandwidth = 125000;
+      innerSlopeWidth = static_cast<uint32_t> ((8e5 / bandBandwidth) + 0.5); // [-5.5;-4.5] & [4.5;5.5]
+      break;
     case 5:
       bandBandwidth = 78125;
       innerSlopeWidth = static_cast<uint32_t> ((5e5 / bandBandwidth) + 0.5); // [-2.75;-2.5] & [2.5;2.75]
