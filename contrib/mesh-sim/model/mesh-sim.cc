@@ -10,9 +10,6 @@ MeshSim::MeshSim (std::vector<int> channels)
   AsciiTraceHelper asciiTraceHelperInterference;
   interference_stream = asciiTraceHelperInterference.CreateFileStream("/home/natasha/repos/ns-3-dev-git/SignalNoiseInterference_5G.csv");
 
-  std::string animFile = "mesh-grid-animation.xml";
-  AnimationInterface anim (animFile);
-
   std::unordered_map<int, double> channelThroughputMap = {};
   _channels = channels;
   std::vector<int>::iterator it;
@@ -107,6 +104,9 @@ MeshSim::CreateNodes ()
 
   AsciiTraceHelper ascii;
   spectrumPhy.EnableAsciiAll (ascii.CreateFileStream ("mesh_olsr.tr"));
+
+  // std::string animFile = "mesh-grid-animation.xml";
+  // AnimationInterface anim (animFile);
 }
 void
 MeshSim::InstallInternetStack ()
@@ -155,7 +155,7 @@ MeshSim::ConfigureWaveform ()
   waveformGeneratorHelper.SetPhyAttribute ("Period", TimeValue (Seconds (0.0007)));
   waveformGeneratorHelper.SetPhyAttribute ("DutyCycle", DoubleValue (1));
   waveformGeneratorDevices = waveformGeneratorHelper.Install (interfNode);
-  NS_LOG_UNCOND("configuring waveform\n");
+  // NS_LOG_UNCOND("configuring waveform\n");
 }
 void MeshSim::GetSetChannelNumber (uint16_t newChannelNumber, uint8_t serverNode, uint8_t clientNode)
 {

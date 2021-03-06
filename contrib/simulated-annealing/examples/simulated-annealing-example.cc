@@ -67,10 +67,11 @@ main (int argc, char *argv[])
   cmd.Parse (argc,argv);
 
   uint32_t seed = seedseq_random_using_clock();
-  double initTemp = 50.00;
+  std::srand(std::time(0));
+  double initTemp = 800.00;
   int numLinks = 9;
   int numChannels = 13;
-  uint16_t maxIterations = 1000;
+  uint16_t maxIterations = 7500;
 
   std::vector<int> channels (numChannels);
   std::iota(channels.begin(), channels.end(), 1);
@@ -88,21 +89,11 @@ main (int argc, char *argv[])
   //   std::cout << it->first << " => " << it->second << '\n';
   // }
   SimulatedAnnealing SA(initTemp, links, numChannels, startSolution, seed, "SINRaverage5.csv");
-
-  SA.setCurrentTemp();
-  // std::cout << "Current temp = " << std::to_string(SA.getTemp()) << std::endl;
-  SA.calcSolutionEnergy();
-  SA.generateNewSolution();
-  // std::map<int, int> newSolution = *SA.getCurrentSolution();
-  // for(it=newSolution.begin(); it!=newSolution.end(); ++it){
-  //   std::cout << it->first << " => " << it->second << '\n';
-  // }
-  SA.calcSolutionEnergy();
-  SA.Acceptance();
-
+  SA.Initialize();
   std::string filename = "/home/natasha/repos/ns-3-dev-git/SignalNoiseInterference_5G.csv";
 
-  while ( (SA._algIter < maxIterations) && SA.getTemp()>2 ) {
+  // while ( (SA._algIter < maxIterations) && SA.getTemp()>1 ) {
+  while (SA._algIter < maxIterations) {
     SA.Run();
     if (exists(filename.c_str())) {
       if (remove(filename.c_str()) != 0 )
@@ -110,7 +101,6 @@ main (int argc, char *argv[])
       else
         puts( "File successfully deleted" );
     }
-    // SA.setCurrentTemp();
   }
 
   return 0;

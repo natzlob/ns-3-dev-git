@@ -27,6 +27,7 @@ public:
     void Acceptance();
     void calcSolutionEnergy();
     double getTemp();
+    void Initialize();
     void Run();
     double _initTemp;
     unsigned int solnIter;
@@ -49,7 +50,6 @@ private:
     std::map<int, int> _currentSolutionMap;
     std::string _sinrAvgFilename;
     std::ofstream _solutionFile;
-    // ns3::Ptr<ns3::OutputStreamWrapper> _solutionFile;
     std::vector< double > _solnEnergyVec;
     std::vector<std::map<int, int>> _solnVec;
     std::vector<double> _energyVec;

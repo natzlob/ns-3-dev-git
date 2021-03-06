@@ -14,13 +14,13 @@ def main():
         names=['signal(W)', 'noise(W)', 'interference(W)', 'snr(dB)'])
     
     snravg = signalNoiseInterferenceSNR['snr(dB)'].mean()
-    print("mean SINR = {}".format(snravg))
+    # print("mean SINR = {}".format(snravg))
 
     with open(output_filename, 'a') as f:
         f.write(str(snravg))
         f.write('\n')
     
-    print("wrote {} to {}".format(snravg, output_filename))
+    # print("wrote {} to {}".format(snravg, output_filename))
     return snravg
 
 
