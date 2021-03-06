@@ -23,7 +23,7 @@ SimulatedAnnealing::SimulatedAnnealing(double Ti, std::vector<std::pair<int, int
     _energyVec = {};
     _solnVec.push_back(_currentSolutionMap);
     _sinrAvgFilename = filename;
-    _solutionFile.open("/home/natasha/repos/ns-3-dev-git/acceptedSolutions_exp_cooling_0.8_Ti=800.txt", std::ios::out | std::ios::app);
+    _solutionFile.open("/home/natasha/repos/ns-3-dev-git/acceptSolns_exp_cooling_0.8_Ti=800.txt", std::ios::out | std::ios::app);
     if (!_solutionFile) {
         std::cerr << "can't open output file" << std::endl;
     }
@@ -90,7 +90,7 @@ void SimulatedAnnealing::Acceptance()
     if ((acceptpoint==false)&&(_energyVec.size()>2))
     {
             _energyVec.pop_back();
-            //_solnVec.pop_back();_solutionFile << _energyVec.back() << "\n";
+
     }
     std::cout << "solutionFile << " << _energyVec.back() << "\n";
     _solutionFile << _energyVec.back() << "\n";

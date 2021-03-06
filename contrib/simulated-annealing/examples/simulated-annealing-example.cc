@@ -71,7 +71,7 @@ main (int argc, char *argv[])
   double initTemp = 800.00;
   int numLinks = 9;
   int numChannels = 13;
-  uint16_t maxIterations = 7500;
+  uint16_t maxIterations = 5000;
 
   std::vector<int> channels (numChannels);
   std::iota(channels.begin(), channels.end(), 1);
